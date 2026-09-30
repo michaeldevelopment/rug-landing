@@ -1,0 +1,153 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   RUG · Sección 02 — estilos
+   Todo va bajo .rug-sv para no chocar con el resto del sitio.
+   Los tokens de color salen de tu sistema de diseño.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.rug-sv{
+  --rug-bg:#0A0B0D;
+  --rug-accent:#C9F24D;
+  --rug-magenta:#E85D9B;
+  --rug-cold:#3D4A52;
+  --rug-ivory:#F2F1EC;
+  --rug-muted:#8A9199;
+  --rug-line:rgba(242,241,236,.10);
+  --rug-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --rug-disp:"Space Grotesk","Helvetica Neue",Arial,sans-serif;
+
+  /* altura del riel de scroll: ~130vh por módulo + colchón.
+     Más alto = transición más lenta entre módulos. */
+  height:620vh;
+  position:relative;
+  /* Sin background propio: la seccion es transparente para que se vea lo que
+     haya detras en la pagina anfitriona (en v4, el video del hero). El
+     oscurecimiento lo pone .rug-sv__wash, que se cierra con el scroll. */
+  color:var(--rug-ivory);
+  font-family:var(--rug-disp);
+}
+
+.rug-sv *,.rug-sv *::before,.rug-sv *::after{box-sizing:border-box}
+
+.rug-sv__stage{
+  position:sticky;top:0;height:100svh;overflow:hidden;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+
+/* Velo, no fondo. El canvas se rinde con alpha:true, asi que lo que haya
+   detras de la seccion (en v4, el video del hero) se ve a traves. La opacidad
+   la gobierna layout() segun el avance del riel: entra transparente y se va
+   cerrando para que textos y capsulas respiren. Si el velo volviera a llevar
+   var(--rug-bg) en el background, taparia el video por completo. */
+.rug-sv__wash{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:var(--rug-bg);
+  opacity:0;
+  will-change:opacity;
+}
+/* Los resplandores lima van en una capa aparte, siempre a opacidad plena:
+   son parte de la escena, no del velo. */
+.rug-sv__wash::after{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(62% 56% at 50% 48%, rgba(201,242,77,.06), transparent 70%),
+    radial-gradient(90% 60% at 50% 112%, rgba(201,242,77,.05), transparent 62%);
+}
+.rug-sv__canvas{position:absolute;inset:0;z-index:1;display:block;width:100%;height:100%}
+
+/* ---- modo transicion (solo v6) --------------------------------------------
+   Velo y canvas fijos al viewport y fuera del stage. Su borde ya no coincide
+   con el limite de ninguna seccion, que era exactamente lo que se veia como
+   una linea recta cruzando la pantalla.
+   z-index 5: por encima de #video-layer (1) y #video-scrim (2) de la pagina
+   anfitriona, por debajo de #main-content (10), asi que todos los textos
+   siguen quedando delante igual que antes. */
+.rug-sv--transicion > .rug-sv__wash,
+.rug-sv--transicion > .rug-sv__canvas{
+  position:fixed;inset:0;width:100%;height:100%;
+}
+.rug-sv--transicion > .rug-sv__wash{z-index:4}
+.rug-sv--transicion > .rug-sv__canvas{z-index:5}
+
+/* El oscurecimiento pasa a ser RADIAL. Un degradado recto reintroduciria por
+   la puerta de atras el borde horizontal que estamos quitando. */
+.rug-sv--transicion > .rug-sv__wash{
+  background:
+    radial-gradient(130% 100% at 50% 42%,
+      rgba(10,11,13,0) 0%,
+      rgba(10,11,13,.55) 45%,
+      rgba(10,11,13,.92) 78%,
+      rgba(10,11,13,1) 100%);
+}
+.rug-sv--transicion > .rug-sv__wash::after{
+  /* los resplandores lima se mantienen sobre el velo radial */
+  background:
+    radial-gradient(62% 56% at 50% 48%, rgba(201,242,77,.06), transparent 70%),
+    radial-gradient(90% 60% at 50% 112%, rgba(201,242,77,.05), transparent 62%);
+}
+
+.rug-sv__copy,
+.rug-sv__foot{position:absolute;z-index:2}
+
+/* ---- bloques de texto (uno por módulo, superpuestos) ---- */
+/* left: 24px de margen + 10vw de corrimiento a la derecha.
+   top: el bloque arranca en el 24% del alto. Ojo: .rug-sv__copy mide 0 de
+   alto (sus slots son absolutos), asi que translateY(-50%) no hace nada:
+   este % es donde EMPIEZA el texto, no donde se centra. */
+.rug-sv__copy{left:calc(24px + 10vw);top:24%;width:min(400px,36vw)}
+.rug-sv__slot{
+  position:absolute;left:0;top:0;width:100%;opacity:0;
+  transition:opacity .14s linear, transform .18s cubic-bezier(.2,.6,.2,1);
+}
+/* En modo transicion el fade del copy lo gobierna el progreso de scroll, que
+   ya es suave. La transicion CSS de .14s se sumaria encima y arrastraria la
+   aparicion medio segundo por detras del matraz. */
+.rug-sv--transicion .rug-sv__slot{transition:none}
+.rug-sv__kicker{
+  font-family:var(--rug-mono);font-size:9.5px;letter-spacing:.22em;color:var(--rug-accent);
+  margin-bottom:14px;display:flex;align-items:center;gap:10px;
+}
+.rug-sv__kicker::before{content:"";width:28px;height:1px;background:currentColor}
+.rug-sv__kicker.is-alt{color:var(--rug-magenta)}
+
+.rug-sv__title{
+  font-size:clamp(30px,3.6vw,54px);line-height:.98;letter-spacing:-.025em;
+  font-weight:700;margin:0 0 16px;
+}
+.rug-sv__desc{margin:0 0 20px;font-size:14px;line-height:1.6;color:var(--rug-muted);max-width:40ch}
+
+.rug-sv__caps{list-style:none;margin:0 0 22px;padding:0;display:grid;gap:9px}
+.rug-sv__caps li{
+  font-family:var(--rug-mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--rug-muted);display:flex;align-items:center;gap:10px;
+}
+.rug-sv__caps li::before{
+  content:"";width:4px;height:4px;border-radius:50%;background:var(--rug-accent);flex:none;
+}
+
+/* ---- pie ---- */
+.rug-sv__foot{
+  left:0;right:0;bottom:0;padding:0 24px 26px;
+  display:flex;align-items:center;justify-content:center;pointer-events:none;
+}
+.rug-sv__rail{flex:1;max-width:340px;display:flex;gap:6px}
+.rug-sv__rail i{flex:1;height:2px;background:var(--rug-line);position:relative;overflow:hidden}
+.rug-sv__rail s{
+  position:absolute;inset:0;display:block;background:var(--rug-accent);
+  transform:scaleX(0);transform-origin:left;text-decoration:none;
+}
+/* ---- móvil ---- */
+@media (max-width:860px){
+  .rug-sv{height:520vh}
+  .rug-sv__copy{
+    left:20px;right:20px;width:auto;top:auto;transform:none;
+    bottom:calc(96px + env(safe-area-inset-bottom,0px));
+  }
+  .rug-sv__title{font-size:27px}
+  .rug-sv__caps{display:none}
+  .rug-sv__foot{padding:0 20px 20px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .rug-sv__slot{transition:opacity .15s linear}
+}

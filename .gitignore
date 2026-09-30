@@ -1,0 +1,30 @@
+# Sistema operativo
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*~
+
+# Node — el proyecto no lo usa hoy, pero si algun dia entra un bundler
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.npm/
+
+# Ajustes locales de Claude Code (las skills del proyecto SI se versionan)
+.claude/settings.local.json
+
+# Temporales
+*.log
+*.tmp
+.cache/
+
+# OJO: /vendor y /assets NO se ignoran a proposito.
+# three.js va vendorizado y las fuentes autoalojadas: son parte del
+# despliegue, no dependencias que se reinstalen.

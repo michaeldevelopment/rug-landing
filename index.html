@@ -1,0 +1,1709 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RUG — Laboratorio Estratégico</title>
+    <!-- Fuentes propias. Antes: HTML -> fonts.googleapis.com (CSS bloqueante)
+         -> fonts.gstatic.com (woff2). Dos origenes de terceros y dos viajes
+         encadenados antes de poder pintar el titular. Ahora salen de aqui.
+         Se precargan las dos caras que usa el hero; las otras dos van por CSS. -->
+    <link rel="preload" href="./assets/fonts/SpaceGrotesk-500.woff2"
+          as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./assets/fonts/IBMPlexMono-400.woff2"
+          as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="./assets/fonts/fuentes.css?v=1" />
+
+    <!-- El video sale de cloudfront y arrancaba sin DNS ni TLS calientes. -->
+    <link rel="preconnect" href="https://d8j0ntlcm91z4.cloudfront.net" crossorigin />
+    <!-- Seccion 02 en 3D. Se enlaza el archivo real, no una copia: un ajuste al
+         3D vale a la vez aqui y en la demo de /elementos-3d.
+         El ?v= es cache busting manual — subelo en cada despliegue.
+
+         No bloquea el render: esta seccion vive un viewport mas abajo y encima
+         se monta varios segundos despues. media="print" + onload hace que el
+         navegador lo baje con prioridad baja y lo aplique al llegar; el
+         <noscript> cubre el caso sin JS. -->
+    <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=2"
+          media="print" onload="this.media='all';this.onload=null" />
+    <noscript>
+      <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=2" />
+    </noscript>
+
+    <style>
+      :root {
+        --bg: #0a0b0d;
+        --accent: #c9f24d;
+        --excepcion: #e85d9b;
+        --cold: #3d4a52;
+        --ivory: #f2f1ec;
+        --muted: #8a9199;
+      }
+
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        font-family: "Space Grotesk", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--ivory);
+        width: 100%;
+        height: auto;
+        /* `overflow-x: hidden` obliga al navegador a convertir el eje Y de
+           `visible` a `auto`, y eso hace del body un contenedor de scroll: el
+           sticky del riel 3D deja de pegarse y la seccion se va hacia arriba.
+           `clip` recorta igual pero NO crea contenedor de scroll, asi que el
+           sticky se resuelve contra el viewport. En v3 daba lo mismo porque no
+           habia ningun sticky en la pagina. */
+        overflow-x: clip;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      html.lenis,
+      html.lenis-under-construction {
+        height: auto;
+      }
+      .lenis.lenis-smooth {
+        scroll-behavior: auto !important;
+      }
+      .lenis.lenis-smooth [data-lenis-prevent] {
+        overscroll-behavior: contain;
+      }
+      .lenis.lenis-stopped {
+        overflow: hidden;
+      }
+      .lenis.lenis-scrolling iframe {
+        pointer-events: none;
+      }
+
+      a {
+        text-decoration: none;
+        color: inherit;
+      }
+
+      /* ── Video layer ── */
+      #video-layer {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        z-index: 1;
+        background: var(--bg);
+        user-select: none;
+      }
+      #video-layer video {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        min-width: 100%;
+        min-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: cover;
+        pointer-events: none;
+        opacity: 0;
+        will-change: transform, filter, opacity;
+      }
+
+      /* ── Video scrim (dark left half so headline is legible) ── */
+      #video-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+        background:
+          linear-gradient(
+            90deg,
+            rgba(10, 11, 13, 0.96) 0%,
+            rgba(10, 11, 13, 0.86) 28%,
+            rgba(10, 11, 13, 0.55) 55%,
+            rgba(10, 11, 13, 0.28) 78%,
+            rgba(10, 11, 13, 0.45) 100%
+          ),
+          radial-gradient(
+            ellipse 70% 90% at 78% 50%,
+            transparent 0%,
+            rgba(10, 11, 13, 0.35) 60%,
+            rgba(10, 11, 13, 0.75) 100%
+          );
+      }
+
+      /* ── Bottom blur (kept from neural-interface) ── */
+      #bottom-blur {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 150px;
+        z-index: 30;
+        pointer-events: none;
+        user-select: none;
+        background: linear-gradient(to bottom, transparent, var(--bg));
+        -webkit-mask-image: linear-gradient(to top, #000 50%, transparent);
+        mask-image: linear-gradient(to top, #000 50%, transparent);
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
+      }
+
+      /* ── Header ── */
+      #main-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        padding: 24px clamp(24px, 6vw, 96px);
+        opacity: 0;
+        transition: opacity 0.8s ease-out;
+      }
+      #main-header.visible {
+        opacity: 1;
+      }
+
+      .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .brand {
+        color: var(--ivory);
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .brand-dot {
+        width: 8px;
+        height: 8px;
+        background: var(--accent);
+        border-radius: 50%;
+        box-shadow: 0 0 12px var(--accent);
+      }
+      .status {
+        display: flex;
+        gap: 24px;
+      }
+
+      /* ── Main ── */
+      #main-content {
+        position: relative;
+        width: 100%;
+        z-index: 10;
+        opacity: 0;
+        transition: opacity 1s ease-out;
+      }
+      #main-content.visible {
+        opacity: 1;
+      }
+
+      /* ── Hero ── */
+      #hero-section {
+        position: relative;
+        width: 100%;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 112px clamp(24px, 6vw, 96px) 40px;
+        transition:
+          opacity 0.1s linear,
+          transform 0.1s linear;
+      }
+
+      .headline {
+        max-width: 640px;
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      .headline.entered {
+        opacity: 1;
+        transform: translateY(0);
+        transition:
+          opacity 0.9s cubic-bezier(0.215, 0.61, 0.355, 1) 0.15s,
+          transform 0.9s cubic-bezier(0.215, 0.61, 0.355, 1) 0.15s;
+      }
+
+      .headline .label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .headline .label::before {
+        content: "";
+        width: 24px;
+        height: 1px;
+        background: var(--accent);
+      }
+
+      .headline h1 {
+        font-size: clamp(40px, 6.5vw, 96px);
+        font-weight: 500;
+        line-height: 0.95;
+        letter-spacing: -0.02em;
+        margin-bottom: 24px;
+      }
+      .headline h1 em {
+        font-style: normal;
+        color: var(--accent);
+      }
+
+      .headline .lede {
+        font-size: clamp(15px, 1.15vw, 18px);
+        line-height: 1.55;
+        color: var(--muted);
+        max-width: 480px;
+        margin-bottom: 28px;
+      }
+
+      .signals {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 24px;
+        max-width: 580px;
+        padding-top: 22px;
+        border-top: 1px solid rgba(242, 241, 236, 0.12);
+      }
+      .signal-item {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .signal-item .num {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+      }
+      .signal-item .name {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--ivory);
+        line-height: 1.2;
+      }
+      .signal-item .detail {
+        font-size: 12px;
+        line-height: 1.45;
+        color: var(--muted);
+      }
+
+      .bottom-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding-top: 40px;
+      }
+      .scroll-cue {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .scroll-line {
+        width: 40px;
+        height: 1px;
+        background: var(--muted);
+        position: relative;
+        overflow: hidden;
+      }
+      /* El hero llega a opacity:0 en el primer viewport, pero esta animacion
+         seguia corriendo en bucle las otras seis pantallas, manteniendo
+         despierto al compositor para pintar algo invisible. La clase la pone
+         tick() cuando el hero se apaga. */
+      body.rug-hero-oculto .scroll-line::after {
+        animation: none;
+      }
+      .scroll-line::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--accent);
+        transform: translateX(-100%);
+        animation: scroll-tick 2.4s cubic-bezier(0.7, 0, 0.3, 1) infinite;
+      }
+      @keyframes scroll-tick {
+        0% {
+          transform: translateX(-100%);
+        }
+        50% {
+          transform: translateX(0%);
+        }
+        100% {
+          transform: translateX(100%);
+        }
+      }
+      .coord {
+        display: flex;
+        gap: 16px;
+      }
+      .coord span {
+        color: var(--ivory);
+      }
+
+      /* ── Modules ── */
+      /* #rug-servicios va SIN padding: el canvas es a sangre y el riel de 620vh
+         define su propia altura. El padding que tenia #modules vive ahora en el
+         envoltorio del fallback, que es lo unico que lo necesita. */
+      #rug-servicios {
+        position: relative;
+        z-index: 10;
+      }
+      .modules-fallback {
+        padding: clamp(80px, 12vw, 160px) clamp(24px, 6vw, 96px)
+          clamp(80px, 12vw, 160px);
+      }
+      /* #bottom-blur es fixed con z-index 30 y muerde el borde inferior del
+         canvas todo el rato. Se apaga mientras el riel 3D esta en vista. */
+      body.rug-3d-activo #bottom-blur {
+        opacity: 0;
+        transition: opacity 0.4s ease-out;
+      }
+      .modules-intro {
+        max-width: 780px;
+        margin-bottom: clamp(48px, 6vw, 96px);
+      }
+      .modules-intro .kicker {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 18px;
+      }
+      .modules-intro h2 {
+        font-size: clamp(32px, 4.5vw, 64px);
+        font-weight: 500;
+        line-height: 1.02;
+        letter-spacing: -0.02em;
+        margin-bottom: 20px;
+      }
+      .modules-intro p {
+        font-size: clamp(15px, 1.15vw, 18px);
+        line-height: 1.6;
+        color: var(--muted);
+        max-width: 620px;
+      }
+
+      .module-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+      }
+      .module-card {
+        position: relative;
+        border: 1px solid rgba(242, 241, 236, 0.08);
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.02),
+          transparent
+        );
+        padding: clamp(28px, 3vw, 44px);
+        min-height: 320px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        overflow: hidden;
+        opacity: 0;
+        transform: translateY(28px);
+      }
+      .module-card::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 3px;
+        height: 32px;
+        background: var(--accent);
+        transform: scaleY(0);
+        transform-origin: top;
+        transition: transform 0.5s cubic-bezier(0.7, 0, 0.3, 1);
+      }
+      .module-card:hover {
+        border-color: rgba(201, 242, 77, 0.28);
+      }
+      .module-card:hover::before {
+        transform: scaleY(1);
+      }
+      .module-card.in-view {
+        opacity: 1;
+        transform: translateY(0);
+        transition:
+          opacity 0.7s ease,
+          transform 0.7s cubic-bezier(0.2, 0, 0.15, 1),
+          border-color 0.4s ease;
+      }
+      .module-card.in-view:nth-child(2) {
+        transition-delay: 0.08s;
+      }
+      .module-card.in-view:nth-child(3) {
+        transition-delay: 0.16s;
+      }
+      .module-card.in-view:nth-child(4) {
+        transition-delay: 0.24s;
+      }
+      .module-card .m-num {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        color: var(--accent);
+        margin-bottom: 16px;
+      }
+      .module-card h3 {
+        font-size: clamp(24px, 2.4vw, 34px);
+        font-weight: 500;
+        line-height: 1.05;
+        letter-spacing: -0.01em;
+        margin-bottom: 12px;
+      }
+      .module-card .m-behavior {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 24px;
+      }
+      .module-card .m-body {
+        font-size: 14.5px;
+        line-height: 1.6;
+        color: var(--ivory);
+        opacity: 0.82;
+      }
+      .module-card.excepcion .m-num {
+        color: var(--excepcion);
+      }
+      .module-card.excepcion::before {
+        background: var(--excepcion);
+      }
+
+      /* ── Mobile ── */
+      @media (max-width: 720px) {
+        #main-header {
+          padding: 20px 20px;
+        }
+        .status,
+        .coord {
+          display: none;
+        }
+        #hero-section {
+          padding: 96px 20px 32px;
+          justify-content: flex-end;
+        }
+        .headline .lede {
+          color: var(--ivory);
+          opacity: 0.8;
+        }
+        .signals {
+          grid-template-columns: 1fr;
+          gap: 14px;
+          padding-top: 18px;
+        }
+        .signal-item .detail {
+          color: var(--ivory);
+          opacity: 0.7;
+        }
+        .module-grid {
+          grid-template-columns: 1fr;
+        }
+        .bottom-bar {
+          font-size: 10px;
+        }
+
+        /* Video centered on mobile; scrim becomes vertical */
+        #video-scrim {
+          background:
+            linear-gradient(
+              180deg,
+              rgba(10, 11, 13, 0.88) 0%,
+              rgba(10, 11, 13, 0.55) 30%,
+              rgba(10, 11, 13, 0.55) 55%,
+              rgba(10, 11, 13, 0.85) 80%,
+              rgba(10, 11, 13, 0.98) 100%
+            ),
+            rgba(10, 11, 13, 0.35);
+        }
+      }
+
+      /* .h-linea es block SIEMPRE, no solo en v6: sustituye al <br> que había
+         antes, así que el salto de línea no depende de la transición. */
+      .h-linea {
+        display: block;
+      }
+
+      /* ══ Transición hero → Módulo 01 (solo v6) ══════════════════════════
+         Todo se mueve con transform y opacity, y las variables las escribe
+         el callback de progreso. Nada aquí anima layout. */
+      .rug-v6 #hero-section {
+        /* La salida la gobierna la transición; se anula el fade por scroll de
+           v5 para que no compitan dos animaciones sobre lo mismo. */
+        transition: none;
+      }
+      /* Máscara por líneas del titular: cada línea sube tras su propia
+         ventana, con stagger. overflow oculto en el contenedor = máscara. */
+      /* El titular se desvanece, no se mueve. Antes cada linea subia tras una
+         mascara (overflow:hidden + translateY -115%); ahora solo baja su
+         opacidad. Se conserva el stagger entre lineas, que es lo que daba
+         ritmo, pero sin desplazamiento: nada recorre la pantalla al hacer
+         scroll. Sin mascara tampoco hace falta la holgura para las tildes. */
+      .rug-v6 .h-linea > span {
+        display: block;
+        will-change: opacity;
+        opacity: calc(1 - var(--m, 0));
+      }
+      .rug-v6 .lede,
+      .rug-v6 .signals {
+        will-change: opacity;
+        opacity: calc(1 - var(--salida, 0));
+      }
+      /* SCROLL —— MÓDULOS se llena como barra de progreso */
+      .rug-v6 .scroll-line {
+        position: relative;
+        overflow: hidden;
+      }
+      .rug-v6 .scroll-line::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--accent);
+        transform: scaleX(var(--barra, 0));
+        transform-origin: left;
+      }
+      /* Entrada del contenido del módulo 01 */
+      .rug-v6 .rug-sv__slot {
+        --entrada: 0;
+      }
+      .rug-v6 .rug-sv__title > span {
+        display: block;
+        overflow: hidden;
+      }
+
+      /* ══ Secciones de cierre ═══════════════════════════════════════════
+         Sin tokens nuevos: todo sale de :root. El lenguaje visual (borde
+         fino, barra lima superior, kicker mono con tracking) es el mismo de
+         .module-card, para que el tramo final no se lea como otra página. */
+      .seccion {
+        position: relative;
+        z-index: 10;
+        /* Fondo opaco a proposito. El canvas 3D es fixed a pantalla completa,
+           y aunque se desvanece al salir el riel, cualquier resto se colaba
+           por detras del texto. Con fondo propio la separacion es total y no
+           depende de que el fade llegue a cero en el momento justo. */
+        background: var(--bg);
+        padding: clamp(96px, 14vw, 180px) clamp(24px, 6vw, 96px);
+      }
+      /* El velo de entrada: un degradado radial en el borde superior de la
+         primera seccion de contenido, para que el paso desde el 3D no sea un
+         canto duro sino una disolucion. */
+      #sistema::after {
+        content: "";
+        position: absolute;
+        top: -160px;
+        left: 0;
+        width: 100%;
+        height: 160px;
+        pointer-events: none;
+        background: linear-gradient(to bottom, transparent, var(--bg));
+      }
+      /* Separación entre secciones: hairline lima que se dibuja de centro
+         hacia fuera. Un borde recto a todo lo ancho reintroduciría el mismo
+         corte horizontal que costó tanto quitar del canvas. */
+      .seccion + .seccion::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: min(760px, 80%);
+        height: 1px;
+        transform: translateX(-50%);
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(198, 244, 50, 0.32) 50%,
+          transparent
+        );
+      }
+      /* Y un halo radial muy tenue que difumina el encuentro. */
+      .seccion + .seccion::after {
+        content: "";
+        position: absolute;
+        top: -120px;
+        left: 50%;
+        width: min(1100px, 100%);
+        height: 240px;
+        transform: translateX(-50%);
+        pointer-events: none;
+        background: radial-gradient(
+          50% 50% at 50% 50%,
+          rgba(198, 244, 50, 0.05),
+          transparent 70%
+        );
+      }
+      .seccion__interior {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+      .seccion__intro {
+        max-width: 720px;
+        margin-bottom: clamp(48px, 6vw, 88px);
+      }
+      .seccion .kicker {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 20px;
+      }
+      .seccion h2 {
+        font-size: clamp(30px, 4.2vw, 56px);
+        line-height: 1;
+        letter-spacing: -0.03em;
+        font-weight: 500;
+        margin-bottom: 20px;
+      }
+      .seccion p {
+        font-size: 15px;
+        line-height: 1.7;
+        color: var(--muted);
+        max-width: 56ch;
+      }
+
+      /* ── cards del sistema ── */
+      .sistema-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+      }
+      .card {
+        position: relative;
+        border: 1px solid rgba(242, 241, 236, 0.09);
+        background: rgba(242, 241, 236, 0.015);
+        padding: 32px 28px 36px;
+        overflow: hidden;
+      }
+      .card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: var(--accent);
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.7s cubic-bezier(0.7, 0, 0.3, 1) 0.15s;
+      }
+      .card.revelado::before {
+        transform: scaleX(1);
+      }
+      .card__num {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.2em;
+        color: var(--accent);
+        margin-bottom: 18px;
+      }
+      .card h3 {
+        font-size: 21px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        margin-bottom: 12px;
+      }
+      .card p {
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      /* ── testimonios ── */
+      .testimonios-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+      }
+      .quote {
+        margin: 0;
+        border-left: 1px solid rgba(198, 244, 50, 0.3);
+        padding: 4px 0 4px 26px;
+      }
+      .quote blockquote {
+        margin: 0 0 22px;
+        font-size: 17px;
+        line-height: 1.55;
+        letter-spacing: -0.01em;
+        color: var(--ivory);
+      }
+      .quote figcaption {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .quote__nombre {
+        color: var(--ivory);
+      }
+      .quote__rol {
+        color: var(--muted);
+      }
+
+      /* ── cierre ── */
+      .seccion--cierre .seccion__interior {
+        text-align: center;
+      }
+      .seccion--cierre p {
+        margin: 0 auto;
+      }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: 40px;
+        border: 1px solid var(--accent);
+        border-radius: 999px;
+        padding: 15px 30px;
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 500;
+        transition:
+          background 0.25s ease,
+          color 0.25s ease;
+      }
+      .cta:hover {
+        background: var(--accent);
+        color: var(--bg);
+      }
+      .cta span {
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      /* ── pie ── */
+      #pie {
+        position: relative;
+        z-index: 10;
+        border-top: 1px solid rgba(242, 241, 236, 0.07);
+        padding: 30px clamp(24px, 6vw, 96px);
+      }
+      .pie__linea {
+        max-width: 1180px;
+        margin: 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px 32px;
+        justify-content: space-between;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 9.5px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .pie__marca {
+        color: var(--ivory);
+      }
+
+      /* ══ Revelado por scroll ═══════════════════════════════════════════
+         Solo opacity, transform y filter: nada que dispare layout. El retraso
+         escalonado lo escribe el observer como variable, para no tener una
+         regla :nth-child por cada posición posible. */
+      [data-revelar] {
+        opacity: 0;
+        transform: translateY(26px);
+        filter: blur(6px);
+        transition:
+          opacity 0.75s cubic-bezier(0.2, 0.6, 0.2, 1) var(--ret, 0s),
+          transform 0.85s cubic-bezier(0.2, 0.6, 0.2, 1) var(--ret, 0s),
+          filter 0.75s cubic-bezier(0.2, 0.6, 0.2, 1) var(--ret, 0s);
+      }
+      [data-revelar].revelado {
+        opacity: 1;
+        transform: none;
+        filter: none;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        [data-revelar] {
+          opacity: 1;
+          transform: none;
+          filter: none;
+          transition: none;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .seccion {
+          padding: 80px 20px;
+        }
+        .sistema-grid,
+        .testimonios-grid {
+          grid-template-columns: 1fr;
+        }
+        .pie__linea {
+          flex-direction: column;
+          gap: 10px;
+        }
+      }
+    </style>
+
+    <!-- three.js alojado en este dominio: sin DNS+TLS extra a un CDN y sin
+         quedar a merced de que lo bloqueen. Build MINIFICADA (166 KB gzip
+         frente a 255 KB). La version va en la carpeta, asi que es cacheable
+         un año sin riesgo de servir codigo viejo. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./vendor/three-0.176.0/three.module.min.js",
+          "three/addons/": "./vendor/three-0.176.0/"
+        }
+      }
+    </script>
+
+    <!-- Guarda de WebGL, inline y temprana. Marca <html data-webgl> e inyecta los
+         modulepreload SOLO si hay contexto. Si fueran links estaticos, un
+         dispositivo sin WebGL se descargaria igual los 166 KB de three para
+         nada: el preload no pregunta. -->
+    <script>
+      (function () {
+        var ok = false;
+        try {
+          var c = document.createElement("canvas");
+          ok = !!(window.WebGLRenderingContext &&
+                  (c.getContext("webgl2") || c.getContext("webgl")));
+        } catch (e) {}
+        if (!ok) return;
+        document.documentElement.dataset.webgl = "1";
+        var base = "./vendor/three-0.176.0/";
+        [
+        "three.module.min.js",
+      "three.core.min.js",
+        "postprocessing/EffectComposer.js",
+        "postprocessing/RenderPass.js",
+        "postprocessing/UnrealBloomPass.js",
+        "postprocessing/ShaderPass.js",
+        "postprocessing/OutputPass.js",
+        "postprocessing/Pass.js",
+        "postprocessing/MaskPass.js",
+        "shaders/CopyShader.js",
+        "shaders/LuminosityHighPassShader.js",
+        "shaders/OutputShader.js"
+        ].forEach(function (f) {
+          var l = document.createElement("link");
+          l.rel = "modulepreload";
+          l.href = base + f;
+          document.head.appendChild(l);
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <!-- LAYER 0: video -->
+    <div id="video-layer">
+      <video
+        id="bg-video"
+        muted
+        playsinline
+        preload="auto"
+        src="https://d8j0ntlcm91z4.cloudfront.net/user_39ca84eAE1ODL9hbR5VhoEj8tBf/hf_20260613_120544_a609e0c2-e52d-4bd5-b10f-b66ac51f1965.mp4"
+      ></video>
+    </div>
+
+    <!-- LAYER 1: scrim -->
+    <div id="video-scrim"></div>
+
+    <!-- LAYER 2: bottom blur -->
+    <div id="bottom-blur"></div>
+
+    <!-- HEADER -->
+    <header id="main-header">
+      <div class="top-bar">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          RUG · Laboratorio Estratégico
+        </div>
+        <div class="status">
+          <span>SYS · 02</span>
+          <span>SEÑAL ACTIVA</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN -->
+    <main id="main-content">
+      <section id="hero-section">
+        <div class="headline" id="headline">
+          <div class="label">Infraestructura comercial</div>
+          <h1>
+            <span class="h-linea"><span>Convertimos atención</span></span
+            ><span class="h-linea"><span>en <em>ventas medibles</em>.</span></span>
+          </h1>
+          <p class="lede">
+            Somos el laboratorio que ensambla tráfico, creatividad, páginas y
+            automatización en un solo sistema — cuatro módulos, una máquina.
+          </p>
+          <div class="signals">
+            <div class="signal-item">
+              <span class="num">01 · TRÁFICO</span>
+              <span class="name">Demanda con presión</span>
+              <span class="detail">Inversión publicitaria orientada a ventas.</span>
+            </div>
+            <div class="signal-item">
+              <span class="num">02 · CREATIVIDAD</span>
+              <span class="name">Atención en acción</span>
+              <span class="detail">Piezas con función dentro del sistema.</span>
+            </div>
+            <div class="signal-item">
+              <span class="num">03 · CONVERSIÓN</span>
+              <span class="name">Páginas que venden</span>
+              <span class="detail">Del clic a la operación cerrada.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bottom-bar">
+          <div class="scroll-cue">
+            <span>SCROLL</span>
+            <span class="scroll-line"></span>
+            <span>MÓDULOS</span>
+          </div>
+          <div class="coord">
+            <span>LAT · 04.7110</span>
+            <span>LON · -74.0721</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Seccion 02 · los cuatro modulos, en 3D.
+           Mejora progresiva: las tarjetas de abajo son el estado BASE — las ve
+           quien no tiene WebGL y las leen los buscadores. Si hay WebGL,
+           mountRugServicios() reemplaza el innerHTML de #rug-servicios y en su
+           lugar aparece el riel 3D. No hace falta codigo de fallback aparte. -->
+      <section id="rug-servicios">
+        <div class="modules-fallback">
+          <div class="modules-intro">
+            <div class="kicker">02 · Los cuatro módulos</div>
+            <h2>Un sistema. Cuatro comportamientos.</h2>
+            <p>
+              Cada módulo hace una cosa dentro del sistema — y solo tiene sentido
+              en relación a los otros tres. Ese es el punto de RUG: no vendemos
+              servicios aislados, construimos la máquina.
+            </p>
+          </div>
+          <div class="module-grid">
+            <article class="module-card">
+              <div>
+                <div class="m-num">01 · TRÁFICO PAGO</div>
+                <h3>Demanda que llega con presión.</h3>
+                <div class="m-behavior">Partículas convergentes · ritmo acelerando</div>
+              </div>
+              <p class="m-body">
+                Convertimos inversión publicitaria en oportunidades de venta.
+                Gestionamos campañas con orientación a resultados y, sobre todo,
+                a ventas a través de páginas web.
+              </p>
+            </article>
+
+            <article class="module-card excepcion">
+              <div>
+                <div class="m-num">02 · CREATIVIDAD ESTRATÉGICA</div>
+                <h3>Romper el patrón, a propósito.</h3>
+                <div class="m-behavior">Tinta en suspensión · movimiento orgánico</div>
+              </div>
+              <p class="m-body">
+                Creamos piezas con una función dentro del sistema de ventas.
+                No diseñamos por diseñar: convertimos atención en acción.
+              </p>
+            </article>
+
+            <article class="module-card">
+              <div>
+                <div class="m-num">03 · CONVERSIÓN DIGITAL</div>
+                <h3>Caos que colapsa en estructura.</h3>
+                <div class="m-behavior">Colapso súbito · pausa, golpe, pausa</div>
+              </div>
+              <p class="m-body">
+                Hacemos que el tráfico tenga dónde convertir. No llevamos más
+                personas a una página que no está preparada para vender.
+              </p>
+            </article>
+
+            <article class="module-card">
+              <div>
+                <div class="m-num">04 · AUTOMATIZACIÓN &amp; SISTEMAS</div>
+                <h3>Procesos que ya no hay que empujar.</h3>
+                <div class="m-behavior">Circuito cerrado · loop perpetuo</div>
+              </div>
+              <p class="m-body">
+                Convertimos procesos repetitivos en sistemas. Menos operación
+                manual, más capacidad para vender y crecer.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 03 · El sistema RUG ═══════════════════════════════════════════
+           TEXTO PROVISIONAL: sustituir por el contenido de "El sistema RUG"
+           del PDF de tableros en cuanto esté disponible. -->
+      <section id="sistema" class="seccion">
+        <div class="seccion__interior">
+          <div class="seccion__intro" data-revelar>
+            <div class="kicker">03 · El sistema</div>
+            <h2>Cuatro líneas, una sola máquina.</h2>
+            <p>
+              Los módulos no se venden sueltos. Cada uno resuelve un tramo del
+              recorrido y su valor aparece cuando se conectan: el tráfico llega
+              a una página preparada, la creatividad le da una razón para
+              quedarse y la automatización sostiene lo que se abrió.
+            </p>
+          </div>
+
+          <div class="sistema-grid">
+            <article class="card" data-revelar>
+              <div class="card__num">01</div>
+              <h3>Atención</h3>
+              <p>
+                Inversión publicitaria dirigida a quien puede comprar, no a
+                quien puede hacer clic. La métrica es la oportunidad de venta,
+                no el alcance.
+              </p>
+            </article>
+            <article class="card" data-revelar>
+              <div class="card__num">02</div>
+              <h3>Conversión</h3>
+              <p>
+                La página deja de ser un folleto y pasa a ser el lugar donde se
+                cierra. Arquitectura, copy y velocidad trabajando para una sola
+                decisión.
+              </p>
+            </article>
+            <article class="card" data-revelar>
+              <div class="card__num">03</div>
+              <h3>Venta</h3>
+              <p>
+                Del clic a la operación cerrada, con seguimiento de cada paso.
+                Lo que no se mide no se puede corregir, y lo que no se corrige
+                no escala.
+              </p>
+            </article>
+            <article class="card" data-revelar>
+              <div class="card__num">04</div>
+              <h3>Escala</h3>
+              <p>
+                Los procesos repetitivos se convierten en sistemas. Menos
+                operación manual, más capacidad para vender sin que el equipo
+                sea el cuello de botella.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 04 · Testimonios ══════════════════════════════════════════════
+           TEXTO GENÉRICO: reemplazar por testimonios reales. -->
+      <section id="testimonios" class="seccion">
+        <div class="seccion__interior">
+          <div class="seccion__intro" data-revelar>
+            <div class="kicker">04 · Prueba</div>
+            <h2>Lo que dicen nuestros clientes.</h2>
+          </div>
+
+          <div class="testimonios-grid">
+            <figure class="quote" data-revelar>
+              <blockquote>
+                Dejamos de discutir sobre creatividades y empezamos a discutir
+                sobre números. Esa sola diferencia nos cambió el trimestre.
+              </blockquote>
+              <figcaption>
+                <span class="quote__nombre">Nombre Apellido</span>
+                <span class="quote__rol">Cargo · Empresa</span>
+              </figcaption>
+            </figure>
+            <figure class="quote" data-revelar>
+              <blockquote>
+                Habíamos invertido en anuncios durante dos años sin tocar la
+                página. Cuando ordenaron las dos cosas a la vez, el costo por
+                venta se partió por la mitad.
+              </blockquote>
+              <figcaption>
+                <span class="quote__nombre">Nombre Apellido</span>
+                <span class="quote__rol">Cargo · Empresa</span>
+              </figcaption>
+            </figure>
+            <figure class="quote" data-revelar>
+              <blockquote>
+                Lo que más valoro es que no entregan piezas: entregan un
+                sistema que sigue funcionando cuando no estamos mirando.
+              </blockquote>
+              <figcaption>
+                <span class="quote__nombre">Nombre Apellido</span>
+                <span class="quote__rol">Cargo · Empresa</span>
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 05 · Contacto ═════════════════════════════════════════════════ -->
+      <section id="contacto" class="seccion seccion--cierre">
+        <div class="seccion__interior">
+          <div class="cierre" data-revelar>
+            <div class="kicker">05 · Contacto</div>
+            <h2>¿Estás listo para trabajar con nosotros?</h2>
+            <p>
+              Agendamos un diagnóstico y te decimos qué parte del sistema está
+              frenando las ventas. Sin compromiso y sin presentación de agencia.
+            </p>
+            <!-- TODO: sustituir el número por el real de RUG -->
+            <a
+              class="cta"
+              href="https://wa.me/573000000000?text=Hola%20RUG%2C%20quiero%20agendar%20un%20diagn%C3%B3stico."
+              target="_blank"
+              rel="noopener"
+            >
+              Contáctanos <span>→</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer id="pie">
+      <div class="pie__linea">
+        <span class="pie__marca">RUG · Laboratorio Estratégico</span>
+        <span class="pie__coord">LAT · 04.7110 &nbsp; LON · -74.0721</span>
+        <span class="pie__anio">© <span id="pie-anio">2026</span></span>
+      </div>
+    </footer>
+
+
+    <script>
+      (function () {
+        "use strict";
+
+        // ── State ──
+        let scrollProgress = 0;
+        let smoothScrollProgress = 0;
+        let entrancePhase = "loading"; // loading | animating | complete
+        let entranceStart = 0;
+        let videoReady = false;
+
+        // Mouse parallax targets
+        let targetMX = 0,
+          targetMY = 0;
+        let curMX = 0,
+          curMY = 0;
+        const BASE_SHIFT_VW = 18;
+
+        // ── Elements ──
+        const video = document.getElementById("bg-video");
+        const header = document.getElementById("main-header");
+        const mainContent = document.getElementById("main-content");
+        const heroSection = document.getElementById("hero-section");
+        const headline = document.getElementById("headline");
+
+        const isMobile =
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+            navigator.userAgent,
+          ) || window.innerWidth < 768;
+        /* ── Metricas de viewport, cacheadas ──
+           isPortrait() se llamaba dentro de tick(), o sea tres lecturas de
+           innerWidth/innerHeight por frame para suplir que no habia listener de
+           resize. Ahora se mide una vez y se refresca al redimensionar. */
+        let vpW = window.innerWidth;
+        let vpH = window.innerHeight;
+        let portrait = false;
+        let maxScroll = 1;
+
+        function medirViewport() {
+          vpW = window.innerWidth;
+          vpH = window.innerHeight || 1;
+          portrait = vpW < 720 || vpW / vpH < 0.9;
+          /* scrollHeight fuerza un layout completo del documento. Con el riel
+             3D son siete pantallas de altura, y esto colgaba de
+             lenis.on("scroll"), que dispara en CADA frame mientras se hace
+             scroll: un layout por frame. Aqui se mide solo cuando cambia algo
+             que de verdad lo altera. */
+          maxScroll = Math.max(
+            document.documentElement.scrollHeight -
+              document.documentElement.clientHeight,
+            1,
+          );
+        }
+        medirViewport();
+
+        let resizeTO = 0;
+        window.addEventListener(
+          "resize",
+          () => {
+            clearTimeout(resizeTO);
+            resizeTO = setTimeout(medirViewport, 150);
+          },
+          { passive: true },
+        );
+        /* El riel 3D se monta segundos despues y cambia la altura del
+           documento; sin esto maxScroll se quedaria con el valor de antes. */
+        if (window.ResizeObserver) {
+          new ResizeObserver(medirViewport).observe(document.documentElement);
+        }
+
+        // ── Scroll tracking ──
+        function updateScrollProgress() {
+          const scrollTop =
+            window.scrollY || document.documentElement.scrollTop;
+          scrollProgress = scrollTop / maxScroll;
+        }
+        window.addEventListener("scroll", updateScrollProgress, {
+          passive: true,
+        });
+        updateScrollProgress();
+
+        // ── Mouse parallax (desktop only) ──
+        if (!isMobile) {
+          window.addEventListener(
+            "mousemove",
+            (e) => {
+              if (portrait) return;
+              targetMX = (e.clientX / vpW) * 2 - 1;
+              targetMY = (e.clientY / vpH) * 2 - 1;
+            },
+            { passive: true },
+          );
+        }
+
+        /* ── Lenis (desktop only) ──
+           Cambios respecto a v4:
+           · Su bucle rAF propio desaparece; lo pisa tick(). Eran dos bucles
+             independientes sin orden garantizado entre si, asi que tick() podia
+             leer scrollY antes o despues de que Lenis lo actualizara — un frame
+             de desfase segun le tocara. Ahora Lenis avanza primero, siempre.
+           · La instancia se expone: antes quedaba atrapada en este closure y
+             nada mas en la pagina podia pararla ni leerla.
+           Configuracion intacta: mismo duration, easing y multiplicadores. */
+        let lenisInst = null;
+        if (!isMobile) {
+          const lenisScript = document.createElement("script");
+          lenisScript.src = "https://unpkg.com/lenis@1.1.18/dist/lenis.min.js";
+          lenisScript.onload = function () {
+            lenisInst = new Lenis({
+              duration: 1.2,
+              easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+              smoothWheel: true,
+              wheelMultiplier: 1.0,
+              touchMultiplier: 1.5,
+            });
+            lenisInst.on("scroll", updateScrollProgress);
+            window.__lenis = lenisInst;
+          };
+          document.head.appendChild(lenisScript);
+        }
+
+        // ── Video scrub setup ──
+        let isSeeking = false;
+        let nextSeekTime = null;
+
+        video.addEventListener("seeking", () => {
+          isSeeking = true;
+        });
+        video.addEventListener("seeked", () => {
+          isSeeking = false;
+          if (nextSeekTime !== null) {
+            const t = nextSeekTime;
+            nextSeekTime = null;
+            if (video.readyState >= 1 && video.duration > 0) {
+              isSeeking = true;
+              video.currentTime = t;
+            }
+          }
+        });
+        video.addEventListener("loadedmetadata", () => {
+          video.autoplay = false;
+          video.pause();
+        });
+        video.autoplay = false;
+        video.pause();
+
+        // Safety timeout for entrance
+        setTimeout(() => {
+          if (entrancePhase === "loading") {
+            entrancePhase = "animating";
+            entranceStart = performance.now();
+          }
+        }, 3500);
+
+        /* Red de seguridad dura: revelar el contenido pase lo que pase.
+           La de arriba solo pasa la fase a "animating"; quien anade .visible es
+           el bucle rAF al llegar a "complete". Si el rAF no corre (pestana
+           abierta en segundo plano) o el video de 7 MB no carga, TODA la pagina
+           se queda en opacity:0 — hero, textos y seccion 3D incluidos. Los
+           timers si corren en segundo plano, asi que esta si dispara. */
+        setTimeout(() => {
+          if (!mainContent.classList.contains("visible")) {
+            entrancePhase = "complete";
+            videoReady = true;
+            header.classList.add("visible");
+            mainContent.classList.add("visible");
+            headline.classList.add("entered");
+            video.style.opacity = "1";
+          }
+        }, 5000);
+
+        /* Ultimo valor escrito en cada propiedad animada por frame. Sirve para
+           no volver a tocar el estilo cuando no ha cambiado nada. */
+        let ultFilter = "";
+        let ultTransform = "";
+        let ultOpacity = "";
+        let ultHeroOp = "";
+        let ultHeroTr = "";
+        let ultHeroOculto = false;
+
+        // ── Main animation loop ──
+        function tick(now) {
+          // Lenis primero: deja scrollY actualizado antes de que nadie lo lea.
+          if (lenisInst) lenisInst.raf(now);
+
+          /* TODAS las lecturas de scroll, juntas y al principio. Antes habia
+             lecturas de innerHeight/scrollY DESPUES de escribir estilos en el
+             video, y ese orden lectura-tras-escritura obliga al navegador a
+             recalcular estilo y layout a mitad de frame. */
+          const scrollPx = window.scrollY;
+          const vpScroll = scrollPx / vpH;
+
+          // Smooth scroll interpolation
+          smoothScrollProgress +=
+            (scrollProgress - smoothScrollProgress) * 0.12;
+          if (Math.abs(scrollProgress - smoothScrollProgress) < 0.0001)
+            smoothScrollProgress = scrollProgress;
+
+          // Video blur + scale (scroll-driven).
+          // Tambien en viewports: asi el desenfoque pleno cae dentro de la
+          // seccion 3D y no al 55% de un documento que ahora mide 7 pantallas.
+          const subtleBase = Math.max(0, Math.min(1, vpScroll / 0.8));
+          const progressive = Math.max(0, Math.min(1, (vpScroll - 0.6) / 1.0));
+          const blurVal = subtleBase * 5 + progressive * 50;
+          const scaleVal =
+            1.03 + Math.max(0, Math.min(1, vpScroll / 2.2)) * 0.08;
+
+          // Entrance
+          let entranceZoom = 1.0;
+          let entranceOpacity = 1.0;
+
+          if (entrancePhase === "loading") {
+            entranceZoom = 1.12;
+            entranceOpacity = 0;
+            if (video.readyState >= 3) {
+              entrancePhase = "animating";
+              entranceStart = performance.now();
+            }
+          }
+
+          if (entrancePhase === "animating") {
+            const elapsed = now - entranceStart;
+            const progress = Math.min(1, elapsed / 1400);
+            const easeOut = 1 - Math.pow(1 - progress, 3);
+            entranceZoom = 1.12 - 0.12 * easeOut;
+            entranceOpacity = Math.min(1.0, elapsed / 500);
+
+            if (progress >= 1) {
+              entrancePhase = "complete";
+              videoReady = true;
+              header.classList.add("visible");
+              mainContent.classList.add("visible");
+              headline.classList.add("entered");
+            }
+          }
+
+          if (entrancePhase === "complete" && !videoReady) {
+            videoReady = true;
+            header.classList.add("visible");
+            mainContent.classList.add("visible");
+            headline.classList.add("entered");
+          }
+
+          // Mouse parallax (desktop landscape only)
+          let shiftX = 0;
+          let shiftY = 0;
+          if (!portrait) {
+            curMX += (targetMX - curMX) * 0.06;
+            curMY += (targetMY - curMY) * 0.06;
+            shiftX = BASE_SHIFT_VW - curMX * 1.4;
+            shiftY = -curMY * 1.4;
+          } else {
+            shiftX = 0;
+            shiftY = 0;
+          }
+
+          /* Apply video styles — solo si el valor ha cambiado.
+             Estas tres se escribian 60 veces por segundo pasara lo que pasara.
+             El caso peor es el blur: se queda clavado en 55px durante ~5
+             viewports del riel 3D, y aun asi se reasignaba en cada frame,
+             invalidando estilo sobre una capa a pantalla completa mientras
+             three.js y el bloom pelean por la misma GPU. */
+          const fBlur = `blur(${blurVal.toFixed(2)}px)`;
+          if (fBlur !== ultFilter) {
+            video.style.filter = fBlur;
+            ultFilter = fBlur;
+          }
+          const fTr = `translate(-50%, -50%) translate(${shiftX.toFixed(3)}vw, ${shiftY.toFixed(3)}vw) scale(${(scaleVal * entranceZoom).toFixed(4)})`;
+          if (fTr !== ultTransform) {
+            video.style.transform = fTr;
+            ultTransform = fTr;
+          }
+          const fOp = String(entranceOpacity);
+          if (fOp !== ultOpacity) {
+            video.style.opacity = fOp;
+            ultOpacity = fOp;
+          }
+
+          // Video seek
+          if (video.readyState >= 1 && video.duration > 0) {
+            const targetTime = Math.max(
+              0,
+              Math.min(video.duration, smoothScrollProgress * video.duration),
+            );
+            if (Math.abs(video.currentTime - targetTime) > 0.008) {
+              if (!isSeeking && !video.seeking) {
+                isSeeking = true;
+                try {
+                  video.currentTime = targetTime;
+                } catch (_) {}
+              } else {
+                nextSeekTime = targetTime;
+              }
+            }
+          }
+
+          // Hero fade + scale on scroll.
+          // Medido en VIEWPORTS, no en fraccion del documento: el riel 3D anade
+          // 620vh y multiplica por ~3.5 la altura de la pagina, asi que un
+          // umbral normalizado al documento (0.26) dejaria el hero encendido
+          // durante casi dos pantallas. Esta forma es inmune a cuanto crezca.
+          // vpScroll ya se leyo al principio del frame, junto al resto.
+          const heroT = Math.min(1, vpScroll / 0.55);
+
+          const heroOp = Math.max(0, 1 - heroT);
+          const heroSc = 1 - (1 - 0.96) * heroT;
+          /* Mismo dirty-check. Aqui ademas importa por otro motivo:
+             #hero-section lleva `transition: opacity .1s, transform .1s`, asi
+             que cada escritura arrancaba una interpolacion nueva de 100 ms
+             sobre un contenedor a pantalla completa, 60 veces por segundo, y
+             seguia haciendolo con heroT clavado en 1 durante los ultimos seis
+             viewports de scroll. */
+          const hOp = heroOp.toFixed(4);
+          if (hOp !== ultHeroOp) {
+            heroSection.style.opacity = hOp;
+            ultHeroOp = hOp;
+          }
+          const hTr = `scale(${heroSc.toFixed(4)})`;
+          if (hTr !== ultHeroTr) {
+            heroSection.style.transform = hTr;
+            ultHeroTr = hTr;
+          }
+
+          const heroOculto = heroOp <= 0.001;
+          if (heroOculto !== ultHeroOculto) {
+            document.body.classList.toggle("rug-hero-oculto", heroOculto);
+            ultHeroOculto = heroOculto;
+          }
+
+          requestAnimationFrame(tick);
+        }
+
+        requestAnimationFrame(tick);
+
+        /* ── Revelado por scroll ──
+           Un solo observer para todo: las tarjetas del fallback sin WebGL y
+           los bloques [data-revelar] de las secciones de cierre. Antes había
+           uno dedicado a .module-card; se generaliza en vez de duplicarlo.
+           Cada elemento se deja de observar al entrar, así que el revelado
+           ocurre una sola vez y volver arriba no lo re-dispara. */
+        const revelables = [
+          ...document.querySelectorAll(".module-card, [data-revelar]"),
+        ];
+
+        /* El retraso escalonado se calcula por posición DENTRO de su grupo, no
+           en el documento: si fuera global, la última tarjeta de la última
+           sección esperaría más de un segundo. */
+        revelables.forEach((el) => {
+          const hermanos = [...el.parentElement.children].filter(
+            (n) => n.matches(".module-card, [data-revelar]"),
+          );
+          const i = hermanos.indexOf(el);
+          if (i > 0) el.style.setProperty("--ret", (i * 0.09).toFixed(2) + "s");
+        });
+
+        const io = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((e) => {
+              if (!e.isIntersecting) return;
+              e.target.classList.add("in-view", "revelado");
+              io.unobserve(e.target);
+            });
+          },
+          /* rootMargin negativo abajo: el bloque empieza a revelarse cuando ya
+             ha entrado de verdad, no cuando asoma un píxel. */
+          { threshold: 0, rootMargin: "0px 0px -12% 0px" },
+        );
+        revelables.forEach((el) => io.observe(el));
+
+        // Año del pie, para no dejarlo escrito a mano
+        const anio = document.getElementById("pie-anio");
+        if (anio) anio.textContent = String(new Date().getFullYear());
+      })();
+
+
+      /* == Capa de UI de la transicion ==================================
+         La gobierna el callback de progreso del modulo 3D: un solo punto de
+         entrada, sin listener de scroll propio ni rAF adicional. Todo lo que
+         escribe son variables CSS y textos; cero lecturas de layout. */
+      function capaUI() {
+        const reducido = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const hero = document.querySelector("#hero-section");
+        const lineas = [...document.querySelectorAll("#hero-section .h-linea > span")];
+        const lede = document.querySelector("#hero-section .lede");
+        const signals = document.querySelector("#hero-section .signals");
+        const barra = document.querySelector("#hero-section .scroll-line");
+        const hud = [...document.querySelectorAll("#hero-section .label")];
+
+        const tramo = (p, a, b) => Math.max(0, Math.min(1, (p - a) / (b - a)));
+        const outExpo = (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
+
+        /* Decode: los caracteres se resuelven de izquierda a derecha y los que
+           faltan muestran ruido monoespaciado. El texto original se guarda una
+           vez para poder restaurarlo EXACTAMENTE al volver con scroll arriba. */
+        const GLIFOS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#/%&";
+        hud.forEach((el) => (el.dataset.orig = el.textContent.trim()));
+
+        function decode(el, avance, destino) {
+          const orig = el.dataset.orig;
+          const txt = destino || orig;
+          if (avance <= 0) { if (el.textContent !== orig) el.textContent = orig; return; }
+          if (avance >= 1) { if (el.textContent !== txt) el.textContent = txt; return; }
+          const n = txt.length, res = Math.floor(n * avance);
+          let out = txt.slice(0, res);
+          for (let i = res; i < n; i++)
+            out += txt[i] === " " ? " " : GLIFOS[(i * 7 + ((avance * 97) | 0)) % GLIFOS.length];
+          if (el.textContent !== out) el.textContent = out;
+        }
+
+        let ultBarra = -1, ultSalida = -1;
+
+        function aplicar(p) {
+          if (reducido) { hero.style.opacity = String(1 - tramo(p, 0, 1)); return; }
+
+          // 0.00-0.15 - salida del titular, linea por linea con stagger
+          lineas.forEach((ln, i) => {
+            /* Ventanas mas largas y mas separadas entre lineas: el
+               desvanecido se estira de 0.13 a 0.30 de recorrido y el stagger
+               pasa de 0.035 a 0.07, asi que el titular se apaga con calma en
+               vez de desaparecer en el primer palmo de scroll. */
+            const m = outExpo(tramo(p, i * 0.07, 0.30 + i * 0.07));
+            ln.style.setProperty("--m", m.toFixed(4));
+          });
+
+          // el lede y las senales salen justo detras
+          const salida = outExpo(tramo(p, 0.08, 0.42));
+          if (Math.abs(salida - ultSalida) > 0.002) {
+            lede.style.setProperty("--salida", salida.toFixed(4));
+            signals.style.setProperty("--salida", salida.toFixed(4));
+            ultSalida = salida;
+          }
+
+          // HUD: decode a TRANSMITIENDO y vuelta al texto original
+          const dIda = tramo(p, 0.04, 0.30), dVuelta = tramo(p, 0.66, 0.86);
+          hud.forEach((el) => {
+            if (dVuelta > 0) decode(el, 1 - dVuelta, "TRANSMITIENDO · MÓDULO 01");
+            else decode(el, dIda, "TRANSMITIENDO · MÓDULO 01");
+          });
+
+          // SCROLL --- MODULOS se llena como barra de progreso
+          const b = tramo(p, 0, 0.50);
+          if (Math.abs(b - ultBarra) > 0.004) {
+            barra.style.setProperty("--barra", b.toFixed(4));
+            ultBarra = b;
+          }
+
+          // el hero deja de capturar puntero en cuanto empieza a irse
+          hero.style.pointerEvents = p > 0.45 ? "none" : "";
+        }
+        return { aplicar };
+      }
+
+      /* ── Seccion 02 · modulos en 3D ──
+         Modulo aparte del IIFE de arriba (aquel es script clasico, este necesita
+         type="module" para el importmap). */</script>
+    <script type="module">
+      const raiz = document.querySelector("#rug-servicios");
+
+      /* La decision ya la tomo la guarda inline del <head>. Leerla aqui evita
+         importar rug-servicios.js (55 KB) en dispositivos que no pueden usarlo:
+         se quedan con las tarjetas, que ya estan en el HTML. */
+      const hayWebGL = document.documentElement.dataset.webgl === "1";
+
+      async function montar() {
+        if (!raiz || !hayWebGL) return;
+        try {
+          const { mountRugServicios } = await import(
+            "./elementos-3d/rug-servicios.js?v=2"
+          );
+          /* v6 enciende el modo transicion. v4, v5 y la demo NO lo hacen, y por
+             eso comparten el mismo modulo sin cambiar ni un pixel. */
+          const app = mountRugServicios(raiz, { transicion: { activa: true } });
+          window.__rug = app;
+          document.body.classList.add("rug-3d-activo"); // apaga #bottom-blur
+          document.body.classList.add("rug-v6");
+        } catch (err) {
+          /* El contexto puede fallar aun pasando la deteccion (driver en lista
+             negra, memoria). Las tarjetas siguen ahi, que es justo el punto de
+             que sean el estado base. */
+          console.warn("[RUG] 3D no disponible:", err);
+        }
+      }
+
+      /* #main-content arranca en opacity:0 hasta que termina la entrada del
+         video. Montar antes dejaria al riel midiendo un layout invisible, asi
+         que se espera a .visible. El timeout es la misma red de seguridad de
+         3.5 s que usa la entrada. */
+      const contenido = document.querySelector("#main-content");
+      if (contenido?.classList.contains("visible")) {
+        montar();
+      } else {
+        const obs = new MutationObserver(() => {
+          if (contenido.classList.contains("visible")) {
+            obs.disconnect();
+            montar();
+          }
+        });
+        obs.observe(contenido, {
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+        setTimeout(() => {
+          obs.disconnect();
+          montar();
+        }, 4000);
+      }
+    </script>
+  </body>
+</html>

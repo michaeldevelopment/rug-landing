@@ -1,0 +1,43 @@
+/* Fuentes autoalojadas. Son los MISMOS woff2 que servia Google: mismos
+   glifos, mismas metricas, mismo aspecto. Lo que se elimina es la cadena
+   HTML -> fonts.googleapis.com (CSS bloqueante) -> fonts.gstatic.com (woff2),
+   dos origenes de terceros y dos viajes antes de que el texto se pinte.
+   Ademas van SUBSETEADOS a los 128 caracteres que la pagina usa realmente
+   (latin basico + acentos y signos del espanol), con pyftsubset. De 72.4 KB
+   bajan a 41.4 KB, por debajo incluso de los 51.4 KB que servia Google.
+   Sin unicode-range a proposito: el archivo ya no cubre todo el rango latin,
+   y anunciar uno mas amplio del que contiene solo confunde. Si algun dia
+   aparece un glifo que falta, cae al fallback de la familia.
+   El peso 700 no se descarga porque no se usa en ningun sitio.
+
+   Para regenerar (ver comando exacto en el reporte):
+     python -m fontTools.subset X.woff2 --flavor=woff2 --unicodes-file=... */
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./IBMPlexMono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./IBMPlexMono-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./SpaceGrotesk-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./SpaceGrotesk-500.woff2') format('woff2');
+}

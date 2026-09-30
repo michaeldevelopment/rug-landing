@@ -1,0 +1,35 @@
+# Cabeceras de cache. Formato de Netlify / Cloudflare Pages.
+# Si acabas en Vercel se traduce a vercel.json; en Nginx, a bloques `location`.
+#
+# La regla es simple: todo lo que lleva version en la RUTA se cachea un ano;
+# todo lo que lleva version en un `?v=` NO puede cachearse asi, porque la query
+# no siempre forma parte de la clave de cache. Y el HTML nunca se cachea, porque
+# es quien decide que version de lo demas se usa.
+
+# three.js: la version va en el nombre de la carpeta (vendor/three-0.176.0/).
+# Publicar otra version significa otra ruta, asi que esto es inmutable de verdad.
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Fuentes: mismo caso. Si cambias el subset, renombra el archivo.
+# El crossorigin del <link rel="preload"> exige CORS aunque sea mismo origen.
+/assets/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# rug-servicios.js/.css se versionan con ?v=N en el enlace, no en la ruta.
+# Por eso van con revalidacion: el navegador pregunta, y si el ETag coincide
+# recibe un 304 sin cuerpo. Barato, y sin riesgo de servir codigo viejo.
+# Si prefieres cachearlos un ano, renombralos con hash y quita el ?v=.
+/elementos-3d/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# El HTML manda: nunca cacheado.
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/
+  Cache-Control: public, max-age=0, must-revalidate

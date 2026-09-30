@@ -865,6 +865,127 @@
           gap: 10px;
         }
       }
+
+      /* ══ Cargador ══════════════════════════════════════════════════════
+         Barra segmentada estilo consola, en la misma línea del HUD: mono en
+         mayúscula con tracking amplio, lima sobre grafito. Sin fuentes ni
+         imágenes externas, para que aparezca en el primer pintado aunque
+         Space Grotesk y IBM Plex Mono todavía estén en camino. */
+      #cargador {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 28px clamp(24px, 6vw, 96px);
+        background: var(--bg);
+        font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--muted);
+        transition:
+          opacity 0.6s ease-out,
+          visibility 0.6s;
+      }
+      /* Resplandor lima muy tenue, el mismo recurso que usa el resto: nada
+         recto, todo radial. */
+      #cargador::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(
+          60% 50% at 50% 50%,
+          rgba(198, 244, 50, 0.055),
+          transparent 70%
+        );
+      }
+      #cargador.listo {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .cargador__marca {
+        color: var(--ivory);
+      }
+      .cargador__centro {
+        width: min(560px, 100%);
+        margin: 0 auto;
+        position: relative;
+      }
+      .cargador__fila {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 14px;
+      }
+      #cargador-pct {
+        font-size: 30px;
+        letter-spacing: -0.02em;
+        color: var(--accent);
+        /* tabular para que el número no baile al cambiar de dígito */
+        font-variant-numeric: tabular-nums;
+      }
+      .cargador__pista {
+        position: relative;
+        height: 10px;
+        border: 1px solid rgba(242, 241, 236, 0.14);
+        overflow: hidden;
+      }
+      #cargador-relleno {
+        position: absolute;
+        inset: 0;
+        transform: scaleX(0);
+        transform-origin: left;
+        background: linear-gradient(
+          90deg,
+          rgba(198, 244, 50, 0.55),
+          var(--accent)
+        );
+        box-shadow: 0 0 18px rgba(198, 244, 50, 0.45);
+      }
+      /* Los huecos que parten la barra en bloques. Van ENCIMA del relleno y
+         del color del fondo, así que el efecto de segmentos se mantiene
+         avance donde avance. */
+      .cargador__segmentos {
+        position: absolute;
+        inset: 0;
+        text-decoration: none;
+        background: repeating-linear-gradient(
+          90deg,
+          transparent 0 9px,
+          var(--bg) 9px 12px
+        );
+      }
+      .cargador__detalle {
+        display: flex;
+        gap: 8px;
+        margin-top: 14px;
+        font-size: 9px;
+        letter-spacing: 0.2em;
+        text-transform: none;
+      }
+      .cargador__cursor {
+        color: var(--accent);
+        animation: cargador-parpadeo 1s steps(2, start) infinite;
+      }
+      @keyframes cargador-parpadeo {
+        to {
+          opacity: 0;
+        }
+      }
+      .cargador__pie {
+        text-align: right;
+        font-size: 9px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cargador__cursor {
+          animation: none;
+        }
+      }
     </style>
 
     <!-- three.js alojado en este dominio: sin DNS+TLS extra a un CDN y sin
@@ -918,6 +1039,179 @@
     </script>
   </head>
   <body>
+    <!-- ══ Cargador ══════════════════════════════════════════════════════
+         Va primero en el body y su CSS es inline en el <head>, para que se
+         pinte sin esperar a ningún recurso externo. -->
+    <div id="cargador" role="status" aria-live="polite">
+      <div class="cargador__marca">RUG · LABORATORIO ESTRATÉGICO</div>
+
+      <div class="cargador__centro">
+        <div class="cargador__fila">
+          <span id="cargador-estado">INICIANDO SISTEMA</span>
+          <span id="cargador-pct">0%</span>
+        </div>
+
+        <div class="cargador__pista">
+          <i id="cargador-relleno"></i>
+          <u class="cargador__segmentos"></u>
+        </div>
+
+        <div class="cargador__detalle">
+          <span id="cargador-tarea">Estableciendo enlace</span>
+          <span class="cargador__cursor">_</span>
+        </div>
+      </div>
+
+      <div class="cargador__pie">LAT · 04.7110 &nbsp; LON · -74.0721</div>
+    </div>
+
+    <script>
+      /* ══ Progreso de carga ═══════════════════════════════════════════════
+         Clásico y en línea, justo detrás del markup del cargador, para estar
+         escuchando antes de que empiecen a llegar los recursos.
+
+         El progreso es REAL, no una animación falsa: son cuatro hitos con
+         peso, y el vídeo se lleva la mitad porque es 7.3 MB contra los ~800 KB
+         de todo lo demás junto. Si se repartiera a partes iguales, la barra
+         llegaría al 90% y se quedaría ahí colgada esperando al vídeo, que es
+         exactamente lo que hace que un loader se sienta roto. */
+      (function () {
+        "use strict";
+
+        var PESOS = { dom: 0.08, fuentes: 0.12, tresD: 0.3, video: 0.5 };
+        var hecho = { dom: 0, fuentes: 0, tresD: 0, video: 0 };
+
+        var capa = document.getElementById("cargador");
+        var elPct = document.getElementById("cargador-pct");
+        var elRelleno = document.getElementById("cargador-relleno");
+        var elEstado = document.getElementById("cargador-estado");
+        var elTarea = document.getElementById("cargador-tarea");
+
+        var mostrado = 0;
+        var cerrado = false;
+
+        function objetivo() {
+          var t = 0;
+          for (var k in PESOS) t += PESOS[k] * hecho[k];
+          return t;
+        }
+
+        /* Se expone para que el módulo 3D avise cuando ha montado. */
+        window.__carga = {
+          marca: function (clave, valor) {
+            if (clave in hecho) hecho[clave] = Math.max(hecho[clave], valor);
+          },
+        };
+        window.__cargaLista = false;
+
+        function etiqueta(p) {
+          if (p < 0.25) return ["INICIANDO SISTEMA", "Estableciendo enlace"];
+          if (p < 0.55) return ["CARGANDO MÓDULOS", "Compilando geometría y shaders"];
+          if (p < 0.9) return ["CALIBRANDO ÓPTICA", "Preparando transmisión"];
+          return ["SISTEMA LISTO", "Abriendo laboratorio"];
+        }
+
+        function cerrar() {
+          if (cerrado) return;
+          cerrado = true;
+          /* Se fuerza el 100% al cerrar: si llegamos por la via dura, la barra
+             podria haberse quedado a medias y verse el salto al desaparecer. */
+          mostrado = 1;
+          elPct.textContent = "100%";
+          elRelleno.style.transform = "scaleX(1)";
+          elEstado.textContent = "SISTEMA LISTO";
+          capa.classList.add("listo");
+          /* La entrada del hero espera a esto: si no, su zoom y su fundido
+             ocurrirían detrás del cargador y el visitante no los vería. */
+          setTimeout(function () {
+            window.__cargaLista = true;
+          }, 450);
+        }
+
+        function pintar() {
+          var obj = objetivo();
+          /* Interpolación hacia el objetivo: la barra nunca retrocede ni da
+             saltos secos cuando un hito se completa de golpe. */
+          mostrado += (obj - mostrado) * 0.08;
+          if (obj - mostrado < 0.002) mostrado = obj;
+
+          var pct = Math.min(100, Math.round(mostrado * 100));
+          elPct.textContent = pct + "%";
+          elRelleno.style.transform = "scaleX(" + mostrado.toFixed(4) + ")";
+
+          var e = etiqueta(mostrado);
+          if (elEstado.textContent !== e[0]) elEstado.textContent = e[0];
+          if (elTarea.textContent !== e[1]) elTarea.textContent = e[1];
+
+          if (pct >= 100) {
+            setTimeout(cerrar, 320);
+            return;
+          }
+          requestAnimationFrame(pintar);
+        }
+        requestAnimationFrame(pintar);
+
+        /* ── hitos ──────────────────────────────────────────────────────── */
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", function () {
+            window.__carga.marca("dom", 1);
+          });
+        } else {
+          window.__carga.marca("dom", 1);
+        }
+
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(function () {
+            window.__carga.marca("fuentes", 1);
+          });
+        } else {
+          window.__carga.marca("fuentes", 1);
+        }
+
+        /* Sin WebGL no hay nada 3D que esperar: ese peso se da por cumplido
+           para que la barra no se quede corta en dispositivos con fallback. */
+        if (document.documentElement.dataset.webgl !== "1") {
+          window.__carga.marca("tresD", 1);
+        }
+
+        var vid = document.getElementById("bg-video");
+        if (vid) {
+          vid.addEventListener("loadedmetadata", function () {
+            window.__carga.marca("video", 0.2);
+          });
+          /* buffered da bytes reales descargados, que es lo que de verdad
+             tarda. Es la señal más honesta que tenemos del progreso. */
+          vid.addEventListener("progress", function () {
+            if (!vid.duration || !vid.buffered.length) return;
+            var fin = vid.buffered.end(vid.buffered.length - 1);
+            window.__carga.marca("video", Math.min(0.95, fin / vid.duration));
+          });
+          vid.addEventListener("canplay", function () {
+            window.__carga.marca("video", 1);
+          });
+          vid.addEventListener("error", function () {
+            /* Si el vídeo falla, no tiene sentido retener la página por él. */
+            window.__carga.marca("video", 1);
+          });
+        } else {
+          window.__carga.marca("video", 1);
+        }
+
+        /* Dos redes de seguridad, y la segunda importa mas de lo que parece.
+           La primera da por cumplidos los hitos a los 9 s. Pero la barra se
+           interpola dentro de requestAnimationFrame, y el navegador lo
+           estrangula en pestanas de segundo plano: si alguien abre la pagina
+           en una pestana que no mira, pintar() deja de correr, el cargador no
+           llega nunca al 100% y la landing se queda atrapada detras de el.
+           Por eso el cierre definitivo va en un setTimeout, que si corre en
+           segundo plano, y no depende del rAF para nada. */
+        setTimeout(function () {
+          for (var k in hecho) hecho[k] = 1;
+        }, 9000);
+        setTimeout(cerrar, 10000);
+      })();
+    </script>
+
     <!-- LAYER 0: video -->
     <div id="video-layer">
       <video
@@ -1346,7 +1640,7 @@
 
         // Safety timeout for entrance
         setTimeout(() => {
-          if (entrancePhase === "loading") {
+          if (entrancePhase === "loading" && window.__cargaLista) {
             entrancePhase = "animating";
             entranceStart = performance.now();
           }
@@ -1412,7 +1706,9 @@
           if (entrancePhase === "loading") {
             entranceZoom = 1.12;
             entranceOpacity = 0;
-            if (video.readyState >= 3) {
+            /* Espera tambien al cargador: su zoom y su fundido ocurririan
+               detras de la capa y el visitante se los perderia. */
+            if (video.readyState >= 3 && window.__cargaLista) {
               entrancePhase = "animating";
               entranceStart = performance.now();
             }
@@ -1662,7 +1958,10 @@
       const hayWebGL = document.documentElement.dataset.webgl === "1";
 
       async function montar() {
-        if (!raiz || !hayWebGL) return;
+        if (!raiz || !hayWebGL) {
+          window.__carga && window.__carga.marca("tresD", 1);
+          return;
+        }
         try {
           const { mountRugServicios } = await import(
             "./elementos-3d/rug-servicios.js?v=2"
@@ -1671,6 +1970,7 @@
              eso comparten el mismo modulo sin cambiar ni un pixel. */
           const app = mountRugServicios(raiz, { transicion: { activa: true } });
           window.__rug = app;
+          window.__carga && window.__carga.marca("tresD", 1);
           document.body.classList.add("rug-3d-activo"); // apaga #bottom-blur
           document.body.classList.add("rug-v6");
         } catch (err) {
@@ -1678,6 +1978,7 @@
              negra, memoria). Las tarjetas siguen ahi, que es justo el punto de
              que sean el estado base. */
           console.warn("[RUG] 3D no disponible:", err);
+          window.__carga && window.__carga.marca("tresD", 1);
         }
       }
 

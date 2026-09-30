@@ -146,21 +146,30 @@
      es lo que lo hacia ilegible. Ahora la camara deja libre esta mitad y el
      texto vive aqui, con su propio fondo. */
   .rug-sv__copy{
-    left:0;right:0;width:auto;
-    /* 46% en vez de 50%: el bloque sube y deja de quedar pegado al borde
-       inferior. El matraz se sube en paralelo (movil.camara.desplazamientoY)
-       para que no se toquen. */
-    top:46%;bottom:auto;transform:none;
-    /* Margenes laterales de 28px, mas que los 20px del resto de la pagina:
-       aqui las lineas llegan casi de borde a borde y sin ese aire el texto
-       se leia apretado contra los cantos. */
-    padding:26px 28px calc(44px + env(safe-area-inset-bottom,0px));
+    /* El gutter va en left/right, NO en padding.
+       Esto fue un error que costo dos intentos: .rug-sv__slot es
+       position:absolute con left:0 y width:100%, y para un hijo absoluto la
+       referencia es el PADDING BOX del padre. O sea que el padding horizontal
+       del contenedor quedaba por dentro y los slots seguian ocupando el ancho
+       completo, borde a borde. Estrechando la caja con left/right si se
+       estrecha tambien la referencia de los slots. */
+    --gutter:clamp(22px,8vw,42px);
+    left:var(--gutter);right:var(--gutter);width:auto;
+    top:50%;bottom:auto;transform:none;
+    /* Aire entre la base del matraz y el kicker. Proporcional al alto para
+       que no se coma la pantalla en moviles bajos: ~54px en 900px de alto.
+       Los 30px de antes dejaban el "¿Qué ofrecemos?" pegado al collar. */
+    padding:clamp(40px,6vh,68px) 0 calc(56px + env(safe-area-inset-bottom,0px));
   }
   /* Velo local bajo el texto. Radial y difuso por arriba para que no dibuje
      un canto recto cruzando la pantalla, que es justo lo que venimos
      evitando en toda la landing. */
   .rug-sv__copy::before{
-    content:"";position:absolute;inset:-70px 0 -40px;z-index:-1;
+    /* El velo se desborda por los lados el mismo gutter, para seguir
+       cubriendo el ancho completo de la pantalla: si se quedara dentro de la
+       caja del texto se verian dos cantos verticales. */
+    content:"";position:absolute;
+    inset:-60px calc(-1 * var(--gutter)) -40px;z-index:-1;
     pointer-events:none;
     background:linear-gradient(to bottom,
       rgba(10,11,13,0) 0%,

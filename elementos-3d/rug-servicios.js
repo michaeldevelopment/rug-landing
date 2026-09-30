@@ -190,10 +190,17 @@ export const CONFIG = {
        ~40% del alto en vez de ~70%, y se baja para que el objeto suba a la
        mitad superior y deje la inferior libre para el copy.
 
-       El calculo: con FOV 30 la altura visible es 0.536*distancia. Para que
-       H=1.72 sea el 40% hacen falta 4.30 de alto visible, o sea 8.0 de
-       distancia. El desplazamiento de 0.95 sube el objeto ~22% del cuadro. */
-    camara: { cerca: 8.0, lejos: 10.6, desplazamientoY: 1.12 },
+       El calculo: con FOV 30 la altura visible es 0.536*distancia.
+
+       A 9.5 la capsula ocupa ~34% del alto. Se alejo desde 8.0 por un motivo
+       concreto: el modulo 01 tiene una corola de particulas que se abre POR
+       ENCIMA de la boca, y con la capsula mas grande el borde superior de la
+       pantalla se la comia. Ahora quedan ~15% de aire arriba, mas del doble
+       que antes, y ahi caben las particulas.
+
+       El desplazamiento baja la camara para que el objeto suba en el cuadro,
+       dejando libre la mitad inferior para el texto. */
+    camara: { cerca: 9.5, lejos: 12.2, desplazamientoY: 0.92 },
     desactivarTransmision: true,
     opacidadVidrio:        0.50,
     particulasTrafico:     300,

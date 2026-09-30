@@ -22,10 +22,10 @@
          se monta varios segundos despues. media="print" + onload hace que el
          navegador lo baje con prioridad baja y lo aplique al llegar; el
          <noscript> cubre el caso sin JS. -->
-    <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=4"
+    <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=7"
           media="print" onload="this.media='all';this.onload=null" />
     <noscript>
-      <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=4" />
+      <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=7" />
     </noscript>
 
     <style>
@@ -1962,7 +1962,7 @@
         }
         try {
           const { mountRugServicios } = await import(
-            "./elementos-3d/rug-servicios.js?v=4"
+            "./elementos-3d/rug-servicios.js?v=7"
           );
           /* v6 enciende el modo transicion. v4, v5 y la demo NO lo hacen, y por
              eso comparten el mismo modulo sin cambiar ni un pixel. */

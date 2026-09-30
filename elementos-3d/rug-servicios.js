@@ -185,6 +185,15 @@ export const CONFIG = {
 
   /* --- móvil ----------------------------------------------------------- */
   movil: {
+    /* En movil la capsula llenaba la pantalla de arriba abajo y el texto
+       quedaba encima del vidrio, ilegible. Se aleja la camara para que ocupe
+       ~40% del alto en vez de ~70%, y se baja para que el objeto suba a la
+       mitad superior y deje la inferior libre para el copy.
+
+       El calculo: con FOV 30 la altura visible es 0.536*distancia. Para que
+       H=1.72 sea el 40% hacen falta 4.30 de alto visible, o sea 8.0 de
+       distancia. El desplazamiento de 0.95 sube el objeto ~22% del cuadro. */
+    camara: { cerca: 8.0, lejos: 10.6, desplazamientoY: 1.12 },
     desactivarTransmision: true,
     opacidadVidrio:        0.50,
     particulasTrafico:     300,
@@ -681,9 +690,16 @@ export function mountRugServicios(root, overrides = {}) {
 
     }
 
-    camera.position.set(0, 0.06 + dollyY,
-      lerp(cfg.layout.camaraLejos, cfg.layout.camaraCerca, focus) + dollyZ);
-    camera.lookAt(0, 0, 0);
+    const cam = isMobile ? cfg.movil.camara : null;
+    const zCerca = cam ? cam.cerca : cfg.layout.camaraCerca;
+    const zLejos = cam ? cam.lejos : cfg.layout.camaraLejos;
+    /* La camara baja y mira horizontal (mismo y en posicion y objetivo), asi
+       el objeto sube en el cuadro sin deformarse por perspectiva. Inclinar la
+       mirada en vez de trasladar daria un escorzo raro en el vidrio. */
+    const dy = cam ? cam.desplazamientoY : 0;
+
+    camera.position.set(0, 0.06 + dollyY - dy, lerp(zLejos, zCerca, focus) + dollyZ);
+    camera.lookAt(0, -dy, 0);
     camera.rotateZ(giro);   // el roll va DESPUES: lookAt reescribe la rotacion
     scene.fog.near = camera.position.z + 0.55;
     scene.fog.far  = camera.position.z + 5.4;
@@ -769,9 +785,18 @@ export function mountRugServicios(root, overrides = {}) {
        modulo. Al principio el fondo de la pagina (en v4, el rostro del hero)
        se sigue viendo; despues se apaga para que el contraste de textos y
        capsulas no dependa de lo que haya detras. */
+    /* `entradaVelo` es la correccion de un fallo real: al pasar el velo a
+       position:fixed cubre el viewport ENTERO desde el primer scroll, y con
+       `base` en 0.45 estaba echando un 45% de negro sobre el hero antes de que
+       la transicion empezara siquiera. Por eso el rostro se veia apagado.
+       Ahora entra con el progreso de la transicion: en el hero vale 0. */
+    const entradaVelo = cfg.transicion.activa
+      ? smoothstep(pTrans, 0.05, 0.55)
+      : 1;
+
     washEl.style.opacity = (cfg.velo.base +
       (cfg.velo.techo - cfg.velo.base) * smoothstep(idx, 0, cfg.velo.recorrido))
-      * salidaCanvas;
+      * salidaCanvas * entradaVelo;
 
     slots.forEach((el, j) => {
       const d = Math.abs(idx - j);

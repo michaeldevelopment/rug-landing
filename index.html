@@ -14,8 +14,6 @@
           as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="./assets/fonts/fuentes.css?v=1" />
 
-    <!-- El video sale de cloudfront y arrancaba sin DNS ni TLS calientes. -->
-    <link rel="preconnect" href="https://d8j0ntlcm91z4.cloudfront.net" crossorigin />
     <!-- Seccion 02 en 3D. Se enlaza el archivo real, no una copia: un ajuste al
          3D vale a la vez aqui y en la demo de /elementos-3d.
          El ?v= es cache busting manual — subelo en cada despliegue.
@@ -24,10 +22,10 @@
          se monta varios segundos despues. media="print" + onload hace que el
          navegador lo baje con prioridad baja y lo aplique al llegar; el
          <noscript> cubre el caso sin JS. -->
-    <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=2"
+    <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=4"
           media="print" onload="this.media='all';this.onload=null" />
     <noscript>
-      <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=2" />
+      <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=4" />
     </noscript>
 
     <style>
@@ -1219,7 +1217,7 @@
         muted
         playsinline
         preload="auto"
-        src="https://d8j0ntlcm91z4.cloudfront.net/user_39ca84eAE1ODL9hbR5VhoEj8tBf/hf_20260613_120544_a609e0c2-e52d-4bd5-b10f-b66ac51f1965.mp4"
+        src="./face-video.mp4"
       ></video>
     </div>
 
@@ -1964,7 +1962,7 @@
         }
         try {
           const { mountRugServicios } = await import(
-            "./elementos-3d/rug-servicios.js?v=2"
+            "./elementos-3d/rug-servicios.js?v=4"
           );
           /* v6 enciende el modo transicion. v4, v5 y la demo NO lo hacen, y por
              eso comparten el mismo modulo sin cambiar ni un pixel. */

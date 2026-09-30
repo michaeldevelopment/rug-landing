@@ -139,13 +139,54 @@
 /* ---- móvil ---- */
 @media (max-width:860px){
   .rug-sv{height:520vh}
+
+  /* El copy pasa de estar anclado abajo a ocupar la mitad inferior completa.
+     Antes iba pegado al borde con bottom, asi que la barra del navegador se
+     comia las ultimas lineas y el texto caia sobre el vidrio encendido: eso
+     es lo que lo hacia ilegible. Ahora la camara deja libre esta mitad y el
+     texto vive aqui, con su propio fondo. */
   .rug-sv__copy{
-    left:20px;right:20px;width:auto;top:auto;transform:none;
-    bottom:calc(96px + env(safe-area-inset-bottom,0px));
+    left:0;right:0;width:auto;
+    /* 46% en vez de 50%: el bloque sube y deja de quedar pegado al borde
+       inferior. El matraz se sube en paralelo (movil.camara.desplazamientoY)
+       para que no se toquen. */
+    top:46%;bottom:auto;transform:none;
+    /* Margenes laterales de 28px, mas que los 20px del resto de la pagina:
+       aqui las lineas llegan casi de borde a borde y sin ese aire el texto
+       se leia apretado contra los cantos. */
+    padding:26px 28px calc(44px + env(safe-area-inset-bottom,0px));
   }
-  .rug-sv__title{font-size:27px}
-  .rug-sv__caps{display:none}
+  /* Velo local bajo el texto. Radial y difuso por arriba para que no dibuje
+     un canto recto cruzando la pantalla, que es justo lo que venimos
+     evitando en toda la landing. */
+  .rug-sv__copy::before{
+    content:"";position:absolute;inset:-70px 0 -40px;z-index:-1;
+    pointer-events:none;
+    background:linear-gradient(to bottom,
+      rgba(10,11,13,0) 0%,
+      rgba(10,11,13,.72) 26%,
+      rgba(10,11,13,.94) 55%,
+      var(--rug-bg) 100%);
+  }
+
+  /* Las capacidades vuelven: son parte del contenido de cada modulo y sin
+     ellas la ficha se queda en un titular y poco mas. */
+  .rug-sv__caps{display:grid;gap:7px;margin-bottom:0}
+  .rug-sv__caps li{font-size:9.5px;letter-spacing:.11em}
+
+  .rug-sv__title{font-size:25px;margin-bottom:12px}
+  .rug-sv__desc{font-size:13px;line-height:1.55;margin-bottom:16px;max-width:none}
+  .rug-sv__kicker{margin-bottom:11px}
+
   .rug-sv__foot{padding:0 20px 20px}
+}
+
+/* Pantallas muy bajas: se recorta la descripcion para que las capacidades
+   sigan cabiendo sin scroll interno. */
+@media (max-width:860px) and (max-height:680px){
+  .rug-sv__title{font-size:22px}
+  .rug-sv__desc{font-size:12px;margin-bottom:12px}
+  .rug-sv__caps li:nth-child(n+5){display:none}
 }
 
 @media (prefers-reduced-motion:reduce){

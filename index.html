@@ -22,10 +22,10 @@
          se monta varios segundos despues. media="print" + onload hace que el
          navegador lo baje con prioridad baja y lo aplique al llegar; el
          <noscript> cubre el caso sin JS. -->
-    <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=10"
+    <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=14"
           media="print" onload="this.media='all';this.onload=null" />
     <noscript>
-      <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=10" />
+      <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=14" />
     </noscript>
 
     <style>
@@ -144,21 +144,6 @@
       }
 
       /* ── Bottom blur (kept from neural-interface) ── */
-      #bottom-blur {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: 150px;
-        z-index: 30;
-        pointer-events: none;
-        user-select: none;
-        background: linear-gradient(to bottom, transparent, var(--bg));
-        -webkit-mask-image: linear-gradient(to top, #000 50%, transparent);
-        mask-image: linear-gradient(to top, #000 50%, transparent);
-        -webkit-backdrop-filter: blur(4px);
-        backdrop-filter: blur(4px);
-      }
 
       /* ── Header ── */
       #main-header {
@@ -380,12 +365,6 @@
       .modules-fallback {
         padding: clamp(80px, 12vw, 160px) clamp(24px, 6vw, 96px)
           clamp(80px, 12vw, 160px);
-      }
-      /* #bottom-blur es fixed con z-index 30 y muerde el borde inferior del
-         canvas todo el rato. Se apaga mientras el riel 3D esta en vista. */
-      body.rug-3d-activo #bottom-blur {
-        opacity: 0;
-        transition: opacity 0.4s ease-out;
       }
       .modules-intro {
         max-width: 780px;
@@ -1242,8 +1221,6 @@
     <!-- LAYER 1: scrim -->
     <div id="video-scrim"></div>
 
-    <!-- LAYER 2: bottom blur -->
-    <div id="bottom-blur"></div>
 
     <!-- HEADER -->
     <header id="main-header">
@@ -2018,14 +1995,14 @@
         }
         try {
           const { mountRugServicios } = await import(
-            "./elementos-3d/rug-servicios.js?v=10"
+            "./elementos-3d/rug-servicios.js?v=14"
           );
           /* v6 enciende el modo transicion. v4, v5 y la demo NO lo hacen, y por
              eso comparten el mismo modulo sin cambiar ni un pixel. */
           const app = mountRugServicios(raiz, { transicion: { activa: true } });
           window.__rug = app;
           window.__carga && window.__carga.marca("tresD", 1);
-          document.body.classList.add("rug-3d-activo"); // apaga #bottom-blur
+          document.body.classList.add("rug-3d-activo");
           document.body.classList.add("rug-v6");
         } catch (err) {
           /* El contexto puede fallar aun pasando la deteccion (driver en lista

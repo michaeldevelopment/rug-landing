@@ -165,7 +165,7 @@ export const CONFIG = {
     activa:        false,
     onProgreso:    null,   // (p) => void. La pagina anfitriona anima su UI aqui
     alturaVh:      180,    // alto del pin, en vh
-    chispas:       { alto: 900, medio: 500, bajo: 220 }
+    chispas:       { alto: 2600, medio: 1500, bajo: 650 }
   },
 
   /* --- velo de fondo ---------------------------------------------------- */
@@ -647,6 +647,14 @@ export function mountRugServicios(root, overrides = {}) {
     /* ---- coreografia de la transicion ---------------------------------
        Todo es funcion pura de pTrans, por eso el scroll hacia arriba lo
        deshace exacto: no hay estado acumulado que revertir. */
+    const cam = isMobile ? cfg.movil.camara : null;
+    const zCerca = cam ? cam.cerca : cfg.layout.camaraCerca;
+    const zLejos = cam ? cam.lejos : cfg.layout.camaraLejos;
+    /* La camara baja y mira horizontal (mismo y en posicion y objetivo), asi
+       el objeto sube en el cuadro sin deformarse por perspectiva. Inclinar la
+       mirada en vez de trasladar daria un escorzo raro en el vidrio. */
+    const dy = cam ? cam.desplazamientoY : 0;
+
     let dollyY = 0, dollyZ = 0, giro = 0, llegada = 1, entradaTexto = 1;
     if (cfg.transicion.activa && !reduced) {
       const p = pTrans;
@@ -677,14 +685,33 @@ export function mountRugServicios(root, overrides = {}) {
       /* El copy entra DESPUES de que el matraz empiece a asomar (0.50), no a
          la vez: primero se reconoce el objeto, luego se lee. Ventana larga
          (0.58 -> 0.98) para que sea una aparicion lenta y no un parpadeo. */
-      entradaTexto = easeOutPower3(tramo(p, 0.64, 1.0));
+      /* Ventana 0.52 -> 0.78, no 0.64 -> 1.0. El motivo: el modulo 01 queda
+         centrado cuando pTrans vale ~0.74, asi que con la ventana anterior el
+         texto llegaba a ese punto al 63% de opacidad y se veia lavado — el
+         resto del fundido ocurria ya con el riel en marcha. Ahora arranca
+         justo despues de que el matraz empiece a encenderse (0.46) y termina
+         cuando el modulo se centra. */
+      entradaTexto = easeOutPower3(tramo(p, 0.52, 0.78));
 
       /* Chispas: ventana 0.20 -> 0.62, o sea que empiezan bastante antes de
-         que el matraz asome (0.42) y se apagan mientras este se enciende.
+         que el matraz asome (0.46) y se apagan mientras este se enciende.
          Anuncian la aparicion en vez de acompanarla. */
       if (chispas) {
-        chispas.material.uniforms.uProgress.value = tramo(p, 0.20, 0.62);
-        chispas.material.uniforms.uOpacity.value  = 1 - smoothstep(p, 0.58, 0.72);
+        const u = chispas.material.uniforms;
+        u.uProgress.value = tramo(p, 0.20, 0.62);
+        u.uOpacity.value  = 1 - smoothstep(p, 0.58, 0.72);
+
+        /* El campo se redimensiona a lo que la camara ve AHORA. Con FOV
+           vertical, la mitad del alto visible a distancia d es
+           d * tan(fov/2), y el ancho sale de multiplicar por el aspect. El
+           1.15 lo desborda un poco por los bordes para que no se adivine
+           donde termina el campo. */
+        const dist = Math.abs(camera.position.z);
+        const medioAlto = dist * Math.tan((camera.fov * Math.PI) / 360);
+        u.uExtension.value.set(medioAlto * camera.aspect * 1.15, medioAlto * 1.15, 1.6);
+        /* Centrado en el punto al que mira la camara: en movil eso es
+           y = -desplazamientoY, no el origen. */
+        u.uCentro.value.set(0, -dy, 0);
       }
 
       /* Se avisa a la pagina solo cuando el valor cambia de verdad: asi la
@@ -696,14 +723,6 @@ export function mountRugServicios(root, overrides = {}) {
       }
 
     }
-
-    const cam = isMobile ? cfg.movil.camara : null;
-    const zCerca = cam ? cam.cerca : cfg.layout.camaraCerca;
-    const zLejos = cam ? cam.lejos : cfg.layout.camaraLejos;
-    /* La camara baja y mira horizontal (mismo y en posicion y objetivo), asi
-       el objeto sube en el cuadro sin deformarse por perspectiva. Inclinar la
-       mirada en vez de trasladar daria un escorzo raro en el vidrio. */
-    const dy = cam ? cam.desplazamientoY : 0;
 
     camera.position.set(0, 0.06 + dollyY - dy, lerp(zLejos, zCerca, focus) + dollyZ);
     camera.lookAt(0, -dy, 0);
@@ -784,7 +803,16 @@ export function mountRugServicios(root, overrides = {}) {
          se va hacia arriba con la pagina: por eso el texto del ultimo modulo
          se DESPLAZABA en vez de desvanecerse como los otros tres. Atandolos a
          la misma salida, se apagan en el sitio. */
-      copyEl.style.opacity = salidaCanvas.toFixed(3);
+      /* El contenedor se apaga tambien con `entradaTexto`, no solo con la
+         salida. Esto arregla una linea negra que cruzaba el hero: en movil
+         .rug-sv__copy lleva un ::before con un degradado que acaba en negro
+         solido, y como el contenedor es fixed y estaba a opacidad 1 desde el
+         primer scroll, ese degradado se pintaba sobre el hero y su borde
+         inferior dibujaba un corte recto a lo ancho de la pantalla — aunque
+         los textos de dentro fueran invisibles.
+         Mismo fallo que tuvimos con el velo: una capa fija que se pinta
+         cuando su contenido todavia no existe. */
+      copyEl.style.opacity = (salidaCanvas * entradaTexto).toFixed(3);
       if (pieEl) pieEl.style.opacity = salidaCanvas.toFixed(3);
     }
 
@@ -813,8 +841,10 @@ export function mountRugServicios(root, overrides = {}) {
       if (cfg.transicion.activa) {
         /* Fade limpio, sin desplazamiento: el texto no sube desde abajo, se
            revela donde ya esta. El translateY se queda para v4/v5, que no
-           tienen transicion y ahi si aporta. */
-        el.style.opacity = a * entradaTexto;
+           tienen transicion y ahi si aporta.
+           `entradaTexto` ya se aplica al contenedor, asi que aqui no se
+           repite: multiplicarlo dos veces retrasaria la aparicion. */
+        el.style.opacity = a;
         el.style.transform = '';
       } else {
         el.style.opacity = a;
@@ -1003,13 +1033,17 @@ function chispasEntrada(cfg, nivel, H, ACCENT, renderer) {
   const g = new THREE.BufferGeometry();
   const pos = new Float32Array(N * 3), rnd = new Float32Array(N), sd = new Float32Array(N);
   for (let i = 0; i < N; i++) {
-    /* Distribucion en disco alrededor del eje del matraz: mas densa cerca del
-       centro, para que el destello se lea como un foco y no como lluvia. */
-    const a = Math.random() * Math.PI * 2;
-    const r = Math.pow(Math.random(), 0.6) * 2.6;
-    pos[i * 3]     = Math.cos(a) * r;
-    pos[i * 3 + 1] = (Math.random() - 0.5) * 2.8;
-    pos[i * 3 + 2] = Math.sin(a) * r * 0.7;
+    /* Posiciones en un cubo NORMALIZADO [-1,1]. El tamano real se aplica en el
+       shader con uExtension, que layout() calcula desde la camara.
+
+       Antes eran coordenadas de mundo fijas (un disco de radio 2.6 centrado en
+       el origen) y en movil se notaba: la camara mira a y=-0.92, asi que el
+       campo quedaba descentrado hacia arriba y solo cubria la mitad superior
+       de la pantalla. Derivandolo de la camara, llena el cuadro sea cual sea
+       la distancia y la proporcion. */
+    pos[i * 3]     = Math.random() * 2 - 1;
+    pos[i * 3 + 1] = Math.random() * 2 - 1;
+    pos[i * 3 + 2] = Math.random() * 2 - 1;
     rnd[i] = Math.random();
     sd[i]  = Math.random();
   }
@@ -1022,12 +1056,18 @@ function chispasEntrada(cfg, nivel, H, ACCENT, renderer) {
     uniforms: {
       uProgress: { value: 0 }, uTime: { value: 0 }, uOpacity: { value: 1 },
       uColor: { value: ACCENT.clone() },
-      uScale: { value: 150 * renderer.getPixelRatio() }
+      /* Mitad del ancho/alto/fondo que ocupa el campo, en unidades de mundo. */
+      uExtension: { value: new THREE.Vector3(3, 3, 1.4) },
+      /* Centro del campo: el punto al que mira la camara. */
+      uCentro: { value: new THREE.Vector3(0, 0, 0) },
+      uScale: { value: 190 * renderer.getPixelRatio() }
     },
     vertexShader: `
     attribute float aRandom, aSeed;
     uniform float uProgress, uTime, uScale;
+    uniform vec3 uExtension, uCentro;
     varying float vA;
+    varying float vNucleo;
     void main(){
       /* Cada chispa vive un instante corto dentro de la ventana global, con
          su propio arranque: el conjunto chisporrotea en vez de encenderse y
@@ -1035,28 +1075,38 @@ function chispasEntrada(cfg, nivel, H, ACCENT, renderer) {
       float ini = aRandom * 0.62;
       float t = clamp((uProgress - ini) / 0.30, 0.0, 1.0);
 
+      vec3 origen = uCentro + position * uExtension;
+
       /* Deriva hacia el centro: al final convergen donde nace el matraz. */
-      vec3 p = mix(position, position * 0.34, t * t);
-      p.y += sin(uTime * 1.6 + aSeed * 30.0) * 0.06 * (1.0 - t);
+      vec3 destino = mix(origen, uCentro, 0.66);
+      vec3 p = mix(origen, destino, t * t);
+      p.y += sin(uTime * 1.6 + aSeed * 30.0) * 0.07 * (1.0 - t);
+      p.x += cos(uTime * 1.3 + aSeed * 41.0) * 0.05 * (1.0 - t);
 
       vec4 mv = modelViewMatrix * vec4(p, 1.0);
       gl_Position  = projectionMatrix * mv;
-      gl_PointSize = (0.30 + aSeed * 0.55) * uScale / max(-mv.z, 0.001);
+      gl_PointSize = (0.34 + aSeed * 0.62) * uScale / max(-mv.z, 0.001);
 
-      /* Destello: sube rapido y cae largo. El parpadeo lo da un seno de
-         frecuencia propia por chispa. */
       float vida = smoothstep(0.0, 0.12, t) * (1.0 - smoothstep(0.35, 1.0, t));
-      float parpadeo = 0.55 + 0.45 * sin(uTime * (7.0 + aSeed * 9.0) + aRandom * 20.0);
+      float parpadeo = 0.60 + 0.40 * sin(uTime * (7.0 + aSeed * 9.0) + aRandom * 20.0);
       vA = vida * parpadeo;
+      /* Un tercio de las chispas son "brasas": nucleo mas blanco y brillante.
+         Mezclar dos intensidades da mas sensacion de profundidad que subirlas
+         todas por igual. */
+      vNucleo = step(0.66, aSeed);
     }`,
     fragmentShader: `
-    uniform vec3 uColor; uniform float uOpacity; varying float vA;
+    uniform vec3 uColor; uniform float uOpacity;
+    varying float vA; varying float vNucleo;
     void main(){
       vec2 c = gl_PointCoord - 0.5;
       float d = length(c);
-      float m = smoothstep(0.45, 0.05, d), core = smoothstep(0.18, 0.0, d);
-      vec3 col = mix(uColor, vec3(1.0), core * 0.7);
-      float a = (m * 0.30 + core * 0.80) * vA * uOpacity;
+      /* Caida corta = chispa con borde, no mancha difusa. Es lo que hace que
+         se lean nitidas en vez de emborronadas. */
+      float halo  = smoothstep(0.46, 0.20, d);
+      float nucleo = smoothstep(0.17, 0.01, d);
+      vec3 col = mix(uColor, vec3(1.0), nucleo * (0.55 + vNucleo * 0.35));
+      float a = (halo * 0.30 + nucleo * (1.05 + vNucleo * 0.5)) * vA * uOpacity;
       gl_FragColor = vec4(col * a, a);
     }`
   });

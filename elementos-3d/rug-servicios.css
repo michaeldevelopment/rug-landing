@@ -69,6 +69,14 @@
 .rug-sv--transicion > .rug-sv__wash{z-index:4}
 .rug-sv--transicion > .rug-sv__canvas{z-index:5}
 
+/* El copy y el pie tambien fijos al viewport, misma referencia que el canvas.
+   Si el copy siguiera siendo absolute dentro del stage (100svh) y el canvas
+   fixed (viewport dinamico), en movil se desincronizarian cada vez que la
+   barra del navegador se pliega: el texto se movia y se montaba sobre el 3D. */
+.rug-sv--transicion > .rug-sv__copy,
+.rug-sv--transicion > .rug-sv__foot{position:fixed;z-index:6}
+.rug-sv--transicion > .rug-sv__foot{left:0;right:0;bottom:0}
+
 /* El oscurecimiento pasa a ser RADIAL. Un degradado recto reintroduciria por
    la puerta de atras el borde horizontal que estamos quitando. */
 .rug-sv--transicion > .rug-sv__wash{
@@ -155,7 +163,8 @@
        estrecha tambien la referencia de los slots. */
     --gutter:clamp(22px,8vw,42px);
     left:var(--gutter);right:var(--gutter);width:auto;
-    top:50%;bottom:auto;transform:none;
+    /* 54%: el texto baja un poco mas, con la base del matraz en 48.8%. */
+    top:54%;bottom:auto;transform:none;
     /* Aire entre la base del matraz y el kicker. Proporcional al alto para
        que no se coma la pantalla en moviles bajos: ~54px en 900px de alto.
        Los 30px de antes dejaban el "¿Qué ofrecemos?" pegado al collar. */

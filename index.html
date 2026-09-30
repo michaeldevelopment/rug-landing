@@ -22,10 +22,10 @@
          se monta varios segundos despues. media="print" + onload hace que el
          navegador lo baje con prioridad baja y lo aplique al llegar; el
          <noscript> cubre el caso sin JS. -->
-    <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=7"
+    <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=10"
           media="print" onload="this.media='all';this.onload=null" />
     <noscript>
-      <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=7" />
+      <link rel="stylesheet" href="./elementos-3d/rug-servicios.css?v=10" />
     </noscript>
 
     <style>
@@ -108,6 +108,15 @@
         object-fit: cover;
         pointer-events: none;
         opacity: 0;
+        /* El centrado va aqui, no solo en JS.
+           Con top/left al 50% y sin este translate, la esquina superior
+           izquierda del elemento queda en el centro de la pantalla. El bucle
+           rAF lo corregia escribiendo el transform completo cada frame, pero
+           hasta ese primer frame el video (y su poster) aparecian
+           descolocados. Dejarlo en CSS hace que el encuadre sea correcto
+           desde el primer pintado; el JS lo sobrescribe luego anadiendo
+           parallax y escala. */
+        transform: translate(-50%, -50%);
         will-change: transform, filter, opacity;
       }
 
@@ -1212,11 +1221,20 @@
 
     <!-- LAYER 0: video -->
     <div id="video-layer">
+      <!-- poster: la garantia de que el hero NUNCA sale en negro.
+           face.jpg es un frame de este mismo video y a la misma resolucion
+           (1928x1076), asi que encaja al pixel. Se pinta al instante (165 KB
+           frente a 7 MB) y el video lo releva cuando tiene imagen.
+           Importa sobre todo en movil, donde el navegador aplaza la carga de
+           video: sin poster, ahi solo habia fondo negro. Y como el poster
+           hereda el filter y el transform del elemento, el parallax y el
+           desenfoque siguen funcionando sobre el. -->
       <video
         id="bg-video"
         muted
         playsinline
         preload="auto"
+        poster="./face.jpg"
         src="./face-video.mp4"
       ></video>
     </div>
@@ -1629,12 +1647,42 @@
             }
           }
         });
-        video.addEventListener("loadedmetadata", () => {
-          video.autoplay = false;
+        /* iOS necesita un play() antes de poder mostrar nada.
+           Safari en iPhone IGNORA preload="auto": no descarga ni decodifica un
+           solo frame hasta que el video se reproduce. Como aqui nunca se
+           reproducia — solo se mueve currentTime con el scroll — el elemento
+           se quedaba en readyState 0 y pintaba negro. De ahi que en escritorio
+           se viera y en movil no.
+
+           El arranque: se reproduce un instante (permitido sin gesto porque es
+           muted + playsinline), y en cuanto hay un frame presentado se pausa y
+           se vuelve al inicio. El usuario no llega a percibirlo, pero el
+           decodificador ya tiene imagen y el scrub funciona. */
+        var frameListo = false;
+        function pausarTrasPrimerFrame() {
+          if (frameListo) return;
+          frameListo = true;
           video.pause();
+          try { video.currentTime = 0; } catch (_) {}
+        }
+        function arrancarVideo() {
+          if (frameListo) return;
+          var pr = video.play();
+          if (pr && pr.catch) pr.catch(function () { /* sin gesto: se reintenta */ });
+          if ("requestVideoFrameCallback" in video) {
+            video.requestVideoFrameCallback(pausarTrasPrimerFrame);
+          } else {
+            video.addEventListener("timeupdate", pausarTrasPrimerFrame, { once: true });
+            setTimeout(pausarTrasPrimerFrame, 400);
+          }
+        }
+        video.addEventListener("loadedmetadata", arrancarVideo);
+        if (video.readyState >= 1) arrancarVideo();
+        /* Red de seguridad: si el navegador bloqueo el play automatico, el
+           primer toque del usuario lo desbloquea. */
+        ["touchstart", "pointerdown"].forEach(function (ev) {
+          window.addEventListener(ev, arrancarVideo, { once: true, passive: true });
         });
-        video.autoplay = false;
-        video.pause();
 
         // Safety timeout for entrance
         setTimeout(() => {
@@ -1776,7 +1824,15 @@
               0,
               Math.min(video.duration, smoothScrollProgress * video.duration),
             );
-            if (Math.abs(video.currentTime - targetTime) > 0.008) {
+            /* Umbral de seek. El de escritorio (0.008 s) es menos de un
+               frame a 24 fps, o sea que busca en casi todos los frames. Con
+               este video — un unico keyframe en 4 s — cada busqueda obliga a
+               decodificar desde el frame 0, y un telefono no da abasto: se
+               atasca y no llega a presentar imagen. En movil se sube a 0.25 s
+               (~6 frames), que sigue leyendose fluido pero pide una fraccion
+               de las busquedas. */
+            const umbralSeek = isMobile ? 0.25 : 0.008;
+            if (Math.abs(video.currentTime - targetTime) > umbralSeek) {
               if (!isSeeking && !video.seeking) {
                 isSeeking = true;
                 try {
@@ -1962,7 +2018,7 @@
         }
         try {
           const { mountRugServicios } = await import(
-            "./elementos-3d/rug-servicios.js?v=7"
+            "./elementos-3d/rug-servicios.js?v=10"
           );
           /* v6 enciende el modo transicion. v4, v5 y la demo NO lo hacen, y por
              eso comparten el mismo modulo sin cambiar ni un pixel. */

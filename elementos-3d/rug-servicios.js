@@ -954,20 +954,25 @@ export function mountRugServicios(root, overrides = {}) {
        .rug-sv__stage lleva overflow:hidden y eso recorta a un descendiente
        fixed — el mismo tropiezo que ya tuvimos con el velo.
        Que cubran siempre la pantalla entera es justo lo que elimina la linea:
-       ningun borde suyo coincide ya con el limite de una seccion. */
+       ningun borde suyo coincide ya con el limite de una seccion.
+
+       El copy y el pie salieron tambien, y por un motivo distinto que costo
+       encontrar: el canvas es fixed y mide el viewport DINAMICO, mientras que
+       el stage mide 100svh. En movil, al plegarse la barra del navegador esas
+       dos referencias dejan de coincidir, asi que el texto se desplazaba
+       durante el scroll y acababa encima del matraz. Con los cuatro fijos al
+       viewport comparten referencia y el texto queda quieto. */
     const trans = cfg.transicion.activa;
     const capas = `
         <div class="rug-sv__wash"></div>
-        <canvas class="rug-sv__canvas"></canvas>`;
-    return `
-      ${trans ? capas : ''}
-      <div class="rug-sv__stage">
-        ${trans ? '' : capas}
+        <canvas class="rug-sv__canvas"></canvas>
         <div class="rug-sv__copy"></div>
         <footer class="rug-sv__foot">
           <div class="rug-sv__rail"></div>
-        </footer>
-      </div>`;
+        </footer>`;
+    return `
+      ${trans ? capas : ''}
+      <div class="rug-sv__stage">${trans ? '' : capas}</div>`;
   }
 }
 
